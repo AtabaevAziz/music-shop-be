@@ -1,0 +1,239 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  admin
+  store_manager
+  catalog_manager
+  sales_operator
+  client
+}
+
+enum ProductStatus {
+  draft
+  active
+  archived
+}
+
+enum PaymentStatus {
+  pending
+  partial
+  paid
+  refunded
+}
+
+enum OrderStatus {
+  new
+  confirmed
+  packed
+  ready_for_pickup
+  completed
+  cancelled
+}
+
+enum RepairStatus {
+  new
+  diagnostics
+  in_progress
+  ready
+  completed
+  cancelled
+}
+
+enum Condition {
+  new
+  used
+  showroom
+}
+
+enum PrincipalType {
+  employee
+  customer
+}
+
+enum CustomerTier {
+  standard
+  studio
+  vip
+}
+
+model Employee {
+  id           String    @id
+  name         String
+  login        String?   @unique
+  email        String    @unique
+  phone        String
+  role         Role
+  status       String
+  passwordHash String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  sessions     Session[]
+}
+
+model Customer {
+  id           String       @id
+  name         String
+  phone        String
+  email        String       @unique
+  tier         CustomerTier
+  status       String
+  notes        String
+  passwordHash String
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  sessions     Session[]
+  orders       Order[]
+  repairs      RepairRequest[]
+}
+
+model Session {
+  id            String        @id
+  principalType PrincipalType
+  employeeId    String?
+  customerId    String?
+  expiresAt     DateTime
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  employee      Employee?     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  customer      Customer?     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+}
+
+model Category {
+  id          String     @id
+  name        String
+  slug        String     @unique
+  parentId    String?
+  status      String
+  description String
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  parent      Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
+  children    Category[] @relation("CategoryHierarchy")
+  products    Product[]
+}
+
+model Brand {
+  id        String   @id
+  name      String   @unique
+  country   String
+  website   String
+  status    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  products  Product[]
+}
+
+model Product {
+  id               String              @id
+  name             String
+  sku              String              @unique
+  barcode          String?
+  categoryId       String
+  brandId          String
+  price            Int
+  costPrice        Int
+  stockQty         Int
+  status           ProductStatus
+  shortDescription String
+  description      String
+  specs            Json
+  images           String[]
+  primaryImage     String?
+  condition        Condition
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  category         Category            @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  brand            Brand               @relation(fields: [brandId], references: [id], onDelete: Restrict)
+  inventoryMoves   InventoryMovement[]
+  orderItems       OrderItem[]
+
+  @@index([status])
+  @@index([categoryId])
+  @@index([brandId])
+}
+
+model InventoryMovement {
+  id        String   @id
+  productId String
+  delta     Int
+  reason    String
+  createdAt DateTime @default(now())
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([productId])
+  @@index([createdAt])
+}
+
+model Order {
+  id            String        @id
+  customerId    String
+  paymentStatus PaymentStatus
+  status        OrderStatus
+  notes         String
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  customer      Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  items         OrderItem[]
+
+  @@index([customerId])
+  @@index([status])
+  @@index([paymentStatus])
+}
+
+model OrderItem {
+  id        String  @id
+  orderId   String
+  productId String
+  qty       Int
+  unitPrice Int
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+model RepairRequest {
+  id             String       @id
+  customerId     String
+  instrumentName String
+  brand          String
+  issue          String
+  status         RepairStatus
+  notes          String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  customer       Customer     @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
+  @@index([customerId])
+  @@index([status])
+}
+
+model Activity {
+  id            String   @id
+  title         String
+  messageKey    String
+  messageParams Json
+  timestamp     DateTime @default(now())
+
+  @@index([timestamp])
+}
+
+model BusinessSettings {
+  id                   String        @id
+  currency             String
+  lowStockThreshold    Int
+  defaultProductStatus ProductStatus
+  defaultMarkupPercent Int
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+}
