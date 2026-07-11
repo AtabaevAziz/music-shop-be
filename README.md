@@ -1,6 +1,6 @@
 # music-shop-be
 
-NestJS backend bootstrap for the Music Shop frontend contract in [BACKEND_CONTRACT.md](/home/aziz/WebstormProjects/music-shop-be/BACKEND_CONTRACT.md).
+NestJS backend for the Music Shop frontend contract.
 
 ## Stack
 
@@ -14,6 +14,12 @@ NestJS backend bootstrap for the Music Shop frontend contract in [BACKEND_CONTRA
 - `POST /api/v1/auth/login`
 - `GET /api/v1/auth/session`
 - `POST /api/v1/auth/logout`
+- `GET /api/v1/config/app`
+- `GET /api/v1/config/auth`
+- `GET /api/v1/config/navigation`
+- `GET /api/v1/config/permissions`
+- `GET /api/v1/config/workflows`
+- `GET /api/v1/config/dictionaries`
 - `GET /api/v1/settings`
 - `PUT /api/v1/settings`
 - `GET /api/v1/categories`
@@ -24,6 +30,35 @@ NestJS backend bootstrap for the Music Shop frontend contract in [BACKEND_CONTRA
 - `POST /api/v1/brands`
 - `PUT /api/v1/brands/:id`
 - `DELETE /api/v1/brands/:id`
+- `GET /api/v1/customers`
+- `POST /api/v1/customers`
+- `PUT /api/v1/customers/:id`
+- `DELETE /api/v1/customers/:id`
+- `GET /api/v1/employees`
+- `POST /api/v1/employees`
+- `PUT /api/v1/employees/:id`
+- `DELETE /api/v1/employees/:id`
+- `GET /api/v1/products`
+- `GET /api/v1/products/:id`
+- `POST /api/v1/products`
+- `PUT /api/v1/products/:id`
+- `DELETE /api/v1/products/:id`
+- `POST /api/v1/products/:id/images`
+- `POST /api/v1/products/:id/primary-image`
+- `GET /api/v1/inventory`
+- `POST /api/v1/inventory/adjustments`
+- `GET /api/v1/orders`
+- `POST /api/v1/orders/:id/status`
+- `GET /api/v1/repairs`
+- `POST /api/v1/repairs`
+- `GET /api/v1/activity`
+- `GET /api/v1/finance/summary`
+- `GET /api/v1/client/me`
+- `GET /api/v1/client/products`
+- `GET /api/v1/client/orders`
+- `POST /api/v1/client/orders`
+- `GET /api/v1/client/repairs`
+- `POST /api/v1/client/repairs`
 
 ## Setup
 
@@ -35,6 +70,11 @@ NestJS backend bootstrap for the Music Shop frontend contract in [BACKEND_CONTRA
 6. Seed demo data with `npx prisma db seed`.
 7. Start the app with `npm run start:dev`.
 
+Default local setup:
+
+- backend: `http://localhost:8080`
+- frontend origin for cookies/CORS: `http://localhost:3000`
+
 ## Demo accounts
 
 - Staff login: `admin` / `Secret!1`
@@ -43,9 +83,9 @@ NestJS backend bootstrap for the Music Shop frontend contract in [BACKEND_CONTRA
 ## Notes
 
 - `GET /api/v1/auth/session` returns `200` with `{ "session": null }` when no valid session exists.
+- CORS is restricted by `CLIENT_ORIGIN`; multiple origins can be provided as a comma-separated list.
 - Categories use backend-generated unique slugs.
-- Category delete currently blocks only child-category relations. Product-level delete restrictions belong to the next phase when products are added.
-- Brand delete currently has no product-level relation checks for the same reason.
+- Finance summary is calculated from orders, order items, product costs, and business settings without extra tables.
 
 ## Tests
 

@@ -13,6 +13,13 @@ import { ORDER_STATUS_TRANSITIONS } from '../common/constants/workflow.constants
 export class RuntimeConfigService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private toDictionary<TValue extends string>(values: TValue[]) {
+    return values.map((value) => ({
+      value,
+      labelKey: `dynamic.${value}`
+    }));
+  }
+
   async getAppConfig() {
     const settings = await this.prisma.businessSettings.findUnique({
       where: { id: 'business-settings' }
@@ -98,6 +105,27 @@ export class RuntimeConfigService {
           titleKey: 'nav.repairs',
           subtitleKey: 'section.repairsSubtitle',
           roles: [Role.Admin, Role.StoreManager, Role.SalesOperator, Role.Client]
+        },
+        {
+          id: 'employees',
+          path: '/:locale/employees',
+          titleKey: 'nav.employees',
+          subtitleKey: 'section.employeesSubtitle',
+          roles: [Role.Admin, Role.StoreManager]
+        },
+        {
+          id: 'finance',
+          path: '/:locale/finance',
+          titleKey: 'nav.finance',
+          subtitleKey: 'section.financeSubtitle',
+          roles: [Role.Admin, Role.StoreManager]
+        },
+        {
+          id: 'settings',
+          path: '/:locale/settings',
+          titleKey: 'nav.settings',
+          subtitleKey: 'section.settingsSubtitle',
+          roles: [Role.Admin, Role.StoreManager]
         }
       ]
     };
@@ -106,8 +134,8 @@ export class RuntimeConfigService {
   getPermissionsConfig() {
     return {
       permissions: {
-        [Role.Admin]: ['dashboard', 'catalog', 'inventory', 'orders', 'customers', 'employees', 'settings', 'repairs'],
-        [Role.StoreManager]: ['dashboard', 'catalog', 'inventory', 'orders', 'customers', 'employees', 'settings', 'repairs'],
+        [Role.Admin]: ['dashboard', 'catalog', 'inventory', 'orders', 'customers', 'employees', 'finance', 'settings', 'repairs'],
+        [Role.StoreManager]: ['dashboard', 'catalog', 'inventory', 'orders', 'customers', 'employees', 'finance', 'settings', 'repairs'],
         [Role.CatalogManager]: ['dashboard', 'catalog', 'inventory'],
         [Role.SalesOperator]: ['dashboard', 'orders', 'customers', 'repairs'],
         [Role.Client]: ['dashboard', 'catalog', 'orders', 'repairs']
@@ -129,15 +157,12 @@ export class RuntimeConfigService {
   getDictionariesConfig() {
     return {
       dictionaries: {
-        customerTiers: Object.values(CustomerTier),
-        productStatuses: Object.values(ProductStatus),
-        repairStatuses: Object.values(RepairStatus),
-        paymentStatuses: Object.values(PaymentStatus),
-        conditions: Object.values(Condition),
-        roleMetadata: Object.values(Role).map((role) => ({
-          id: role,
-          labelKey: `role.${role}`
-        }))
+        customerTiers: this.toDictionary(Object.values(CustomerTier)),
+        productStatuses: this.toDictionary(Object.values(ProductStatus)),
+        repairStatuses: this.toDictionary(Object.values(RepairStatus)),
+        paymentStatuses: this.toDictionary(Object.values(PaymentStatus)),
+        conditions: this.toDictionary(Object.values(Condition)),
+        roles: this.toDictionary(Object.values(Role))
       }
     };
   }

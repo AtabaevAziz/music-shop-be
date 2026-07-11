@@ -141,6 +141,51 @@ describe('Music Shop initial phase (e2e)', () => {
       });
   });
 
+  it('returns backend-driven navigation and permissions for staff-only sections', async () => {
+    await request(app.getHttpServer())
+      .get('/api/v1/config/navigation')
+      .expect(200)
+      .expect((response) => {
+        const routeIds = response.body.items.map((item: { id: string }) => item.id);
+        expect(routeIds).toEqual(
+          expect.arrayContaining(['employees', 'finance', 'settings'])
+        );
+      });
+
+    await request(app.getHttpServer())
+      .get('/api/v1/config/permissions')
+      .expect(200)
+      .expect((response) => {
+        expect(response.body.permissions.admin).toEqual(
+          expect.arrayContaining(['employees', 'finance', 'settings'])
+        );
+        expect(response.body.permissions.client).not.toEqual(
+          expect.arrayContaining(['employees', 'finance', 'settings'])
+        );
+      });
+  });
+
+  it('returns dictionaries in the shape expected by the frontend', async () => {
+    await request(app.getHttpServer())
+      .get('/api/v1/config/dictionaries')
+      .expect(200)
+      .expect((response) => {
+        expect(response.body.dictionaries.customerTiers).toEqual(
+          expect.arrayContaining([
+            { value: 'standard', labelKey: 'dynamic.standard' },
+            { value: 'studio', labelKey: 'dynamic.studio' },
+            { value: 'vip', labelKey: 'dynamic.vip' }
+          ])
+        );
+        expect(response.body.dictionaries.roles).toEqual(
+          expect.arrayContaining([
+            { value: 'admin', labelKey: 'dynamic.admin' },
+            { value: 'client', labelKey: 'dynamic.client' }
+          ])
+        );
+      });
+  });
+
   it('rejects invalid order transition', async () => {
     const agent = request.agent(app.getHttpServer());
     await loginAsStaff(agent);
@@ -154,6 +199,28 @@ describe('Music Shop initial phase (e2e)', () => {
       .expect((response) => {
         expect(response.body.error.code).toBe('invalid_transition');
       });
+  });
+
+  it('returns finance summary for staff users', async () => {
+    const agent = request.agent(app.getHttpServer());
+    await loginAsStaff(agent);
+
+    await agent
+      .get('/api/v1/finance/summary')
+      .expect(200)
+      .expect({
+        revenue: 9800000,
+        grossMargin: 2200000,
+        paidOrders: 0,
+        currency: 'UZS'
+      });
+  });
+
+  it('forbids client access to staff finance summary', async () => {
+    const agent = request.agent(app.getHttpServer());
+    await loginAsClient(agent);
+
+    await agent.get('/api/v1/finance/summary').expect(403);
   });
 
   it('creates a client order, reserves stock and creates a movement', async () => {

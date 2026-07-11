@@ -18,10 +18,22 @@ function flattenValidationErrors(errors: ValidationError[]): ValidationError | u
 }
 
 export function configureApp(app: INestApplication): void {
+  const allowedOrigins = (process.env.CLIENT_ORIGIN ?? 'http://localhost:3000')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
   app.setGlobalPrefix('api/v1');
   app.use(cookieParser());
   app.enableCors({
-    origin: true,
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error(`Origin ${origin} is not allowed by CORS.`), false);
+    },
     credentials: true
   });
   app.useGlobalPipes(
@@ -38,4 +50,3 @@ export function configureApp(app: INestApplication): void {
   );
   app.useGlobalFilters(new HttpExceptionFilter());
 }
-
