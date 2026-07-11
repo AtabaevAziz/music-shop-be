@@ -62,7 +62,21 @@ export class RuntimeConfigService {
           path: '/:locale',
           titleKey: 'nav.dashboard',
           subtitleKey: 'meta.appSubtitle',
-          roles: [Role.Admin, Role.StoreManager, Role.CatalogManager, Role.SalesOperator]
+          roles: [Role.Admin, Role.StoreManager, Role.CatalogManager, Role.SalesOperator, Role.Client]
+        },
+        {
+          id: 'catalog',
+          path: '/:locale/catalog',
+          titleKey: 'nav.catalog',
+          subtitleKey: 'section.catalogSubtitle',
+          roles: [Role.Admin, Role.StoreManager, Role.CatalogManager, Role.Client]
+        },
+        {
+          id: 'inventory',
+          path: '/:locale/inventory',
+          titleKey: 'nav.inventory',
+          subtitleKey: 'section.inventorySubtitle',
+          roles: [Role.Admin, Role.StoreManager, Role.CatalogManager]
         },
         {
           id: 'orders',
@@ -72,11 +86,11 @@ export class RuntimeConfigService {
           roles: [Role.Admin, Role.StoreManager, Role.SalesOperator, Role.Client]
         },
         {
-          id: 'catalog',
-          path: '/:locale/products',
-          titleKey: 'nav.catalog',
-          subtitleKey: 'section.productsSubtitle',
-          roles: [Role.Admin, Role.StoreManager, Role.CatalogManager, Role.Client]
+          id: 'customers',
+          path: '/:locale/customers',
+          titleKey: 'nav.customers',
+          subtitleKey: 'section.customersSubtitle',
+          roles: [Role.Admin, Role.StoreManager, Role.SalesOperator]
         },
         {
           id: 'repairs',
@@ -128,4 +142,3 @@ export class RuntimeConfigService {
     };
   }
 }
-
