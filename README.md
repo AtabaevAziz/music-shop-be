@@ -70,6 +70,17 @@ NestJS backend for the Music Shop frontend contract.
 6. Seed demo data with `npx prisma db seed`.
 7. Start the app with `npm run start:dev`.
 
+Local PostgreSQL options:
+
+- Standard TCP setup: keep `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/music_shop`.
+- Ubuntu Core 24 / snap setup:
+  `sudo snap install postgresql`
+  `sudo snap restart postgresql`
+  `postgresql.psql -U postgres -h /tmp`
+  inside `psql`, run `ALTER USER postgres WITH PASSWORD 'postgres';` and `CREATE DATABASE music_shop;`
+  use `DATABASE_URL=postgresql://postgres:postgres@localhost/music_shop?socket=/tmp`
+  then run `npx prisma migrate dev`, `npx prisma db seed`, and `npm run start:dev`
+
 Default local setup:
 
 - backend: `http://localhost:8080`

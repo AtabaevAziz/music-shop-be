@@ -1,5 +1,5 @@
 import { INestApplication, ValidationError, ValidationPipe } from '@nestjs/common';
-import * as cookieParser from 'cookie-parser';
+import cookieParser from 'cookie-parser';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { ApiException } from './common/exceptions/api.exception';
 
