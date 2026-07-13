@@ -102,6 +102,7 @@ export async function seedDatabase(client: PrismaClient): Promise<void> {
     where: { email: 'amina@example.com' },
     update: {
       name: 'Amina Karimova',
+      fullName: 'Amina Karimova',
       phone: '+998901234567',
       tier: CustomerTier.vip,
       status: 'active',
@@ -111,6 +112,7 @@ export async function seedDatabase(client: PrismaClient): Promise<void> {
     create: {
       id: 'customer-001',
       name: 'Amina Karimova',
+      fullName: 'Amina Karimova',
       phone: '+998901234567',
       email: 'amina@example.com',
       tier: CustomerTier.vip,
@@ -124,6 +126,7 @@ export async function seedDatabase(client: PrismaClient): Promise<void> {
     where: { email: 'studio@example.com' },
     update: {
       name: 'Studio Buyer',
+      fullName: 'Studio Buyer LLC',
       phone: '+998907654321',
       tier: CustomerTier.studio,
       status: 'active',
@@ -133,6 +136,7 @@ export async function seedDatabase(client: PrismaClient): Promise<void> {
     create: {
       id: 'customer-002',
       name: 'Studio Buyer',
+      fullName: 'Studio Buyer LLC',
       phone: '+998907654321',
       email: 'studio@example.com',
       tier: CustomerTier.studio,
@@ -196,6 +200,7 @@ export async function seedDatabase(client: PrismaClient): Promise<void> {
         price: 9800000,
         costPrice: 7600000,
         stockQty: 4,
+        minStockQty: 2,
         status: ProductStatus.active,
         shortDescription: 'Versatile electric guitar',
         description: 'Full product description',
@@ -217,6 +222,7 @@ export async function seedDatabase(client: PrismaClient): Promise<void> {
         price: 8700000,
         costPrice: 6900000,
         stockQty: 2,
+        minStockQty: 1,
         status: ProductStatus.active,
         shortDescription: 'Portable stage piano',
         description: 'Weighted keys and compact body',
@@ -271,6 +277,9 @@ export async function seedDatabase(client: PrismaClient): Promise<void> {
       issue: 'Keys have uneven velocity response.',
       status: RepairStatus.new,
       notes: 'Unit is still powering on.',
+      estimatedCost: 350000,
+      assignedMasterName: 'Akmal R.',
+      receivedAt: new Date('2026-07-08T00:00:00.000Z'),
       createdAt: new Date('2026-07-09T10:00:00.000Z'),
       updatedAt: new Date('2026-07-09T10:00:00.000Z')
     }

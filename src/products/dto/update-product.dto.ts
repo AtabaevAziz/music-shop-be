@@ -55,6 +55,12 @@ export class UpdateProductDto {
   stockQty?: number;
 
   @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  minStockQty?: number;
+
+  @IsOptional()
   @IsEnum(ProductStatus)
   status?: ProductStatus;
 
@@ -86,4 +92,3 @@ export class UpdateProductDto {
   @IsEnum(Condition)
   condition?: Condition;
 }
-

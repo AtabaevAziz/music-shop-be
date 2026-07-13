@@ -18,6 +18,7 @@ type ProductWire = {
   price: number;
   costPrice: number;
   stockQty: number;
+  minStockQty?: number;
   status: string;
   shortDescription: string;
   description: string;
@@ -91,6 +92,7 @@ export class ProductsService {
         price: payload.price,
         costPrice: payload.costPrice,
         stockQty: payload.stockQty,
+        minStockQty: payload.minStockQty,
         status: payload.status as never,
         shortDescription: payload.shortDescription.trim(),
         description: payload.description.trim(),
@@ -142,6 +144,7 @@ export class ProductsService {
         price: payload.price,
         costPrice: payload.costPrice,
         stockQty: payload.stockQty,
+        minStockQty: payload.minStockQty,
         status: payload.status as never,
         shortDescription: payload.shortDescription?.trim(),
         description: payload.description?.trim(),
@@ -304,6 +307,7 @@ export class ProductsService {
       price: product.price,
       costPrice: product.costPrice,
       stockQty: product.stockQty,
+      minStockQty: product.minStockQty ?? undefined,
       status: product.status,
       shortDescription: product.shortDescription,
       description: product.description,

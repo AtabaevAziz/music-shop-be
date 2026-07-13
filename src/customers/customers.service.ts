@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
-import { Customer } from '@prisma/client';
+import { Customer, Prisma } from '@prisma/client';
 import { ApiException } from '../common/exceptions/api.exception';
 import { createId } from '../common/utils/id.util';
 import { PrismaService } from '../database/prisma.service';
@@ -10,12 +10,27 @@ import { UpdateCustomerDto } from './dto/update-customer.dto';
 type CustomerWire = {
   id: string;
   name: string;
+  fullName?: string;
   phone: string;
   email: string;
   tier: string;
   status: string;
   notes: string;
+  ordersCount: number;
+  repairsCount: number;
+  registeredAt: Date;
 };
+
+type CustomerWithCounts = Prisma.CustomerGetPayload<{
+  include: {
+    _count: {
+      select: {
+        orders: true;
+        repairs: true;
+      };
+    };
+  };
+}>;
 
 @Injectable()
 export class CustomersService {
@@ -23,6 +38,14 @@ export class CustomersService {
 
   async listCustomers(): Promise<CustomerWire[]> {
     const customers = await this.prisma.customer.findMany({
+      include: {
+        _count: {
+          select: {
+            orders: true,
+            repairs: true
+          }
+        }
+      },
       orderBy: [{ name: 'asc' }]
     });
 
@@ -30,7 +53,17 @@ export class CustomersService {
   }
 
   async getCustomerById(id: string): Promise<CustomerWire> {
-    const customer = await this.prisma.customer.findUnique({ where: { id } });
+    const customer = await this.prisma.customer.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: {
+            orders: true,
+            repairs: true
+          }
+        }
+      }
+    });
 
     if (!customer) {
       throw ApiException.notFound('Customer was not found.');
@@ -60,6 +93,7 @@ export class CustomersService {
       data: {
         id: createId('customer'),
         name: payload.name.trim(),
+        fullName: payload.fullName?.trim(),
         phone: payload.phone.trim(),
         email: payload.email.trim().toLowerCase(),
         tier: payload.tier as never,
@@ -88,6 +122,7 @@ export class CustomersService {
       where: { id },
       data: {
         name: payload.name?.trim(),
+        fullName: payload.fullName?.trim(),
         phone: payload.phone?.trim(),
         email: nextEmail,
         tier: payload.tier as never,
@@ -133,15 +168,22 @@ export class CustomersService {
     }
   }
 
-  private toWire(customer: Customer): CustomerWire {
+  private toWire(customer: CustomerWithCounts | Customer): CustomerWire {
+    const ordersCount = '_count' in customer ? customer._count.orders : 0;
+    const repairsCount = '_count' in customer ? customer._count.repairs : 0;
+
     return {
       id: customer.id,
       name: customer.name,
+      fullName: customer.fullName ?? customer.name,
       phone: customer.phone,
       email: customer.email,
       tier: customer.tier,
       status: customer.status,
-      notes: customer.notes
+      notes: customer.notes,
+      ordersCount,
+      repairsCount,
+      registeredAt: customer.createdAt
     };
   }
 }

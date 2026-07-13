@@ -9,6 +9,11 @@ export class UpdateCustomerDto {
 
   @IsOptional()
   @IsString()
+  @MinLength(2)
+  fullName?: string;
+
+  @IsOptional()
+  @IsString()
   @MinLength(6)
   phone?: string;
 
@@ -30,4 +35,3 @@ export class UpdateCustomerDto {
   @MinLength(1)
   notes?: string;
 }
-

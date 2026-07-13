@@ -80,7 +80,7 @@ Local PostgreSQL options:
   inside `psql`, run `ALTER USER postgres WITH PASSWORD 'postgres';` and `CREATE DATABASE music_shop;`
   use `DATABASE_URL=postgresql://postgres:postgres@localhost/music_shop?socket=/tmp`
   then run `npx prisma migrate dev`, `npx prisma db seed`, and `npm run start:dev`
-
+  
 Default local setup:
 
 - backend: `http://localhost:8080`

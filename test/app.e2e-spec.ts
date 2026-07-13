@@ -223,6 +223,165 @@ describe('Music Shop initial phase (e2e)', () => {
     await agent.get('/api/v1/finance/summary').expect(403);
   });
 
+  it('returns customer aggregates for admin customer list', async () => {
+    const agent = request.agent(app.getHttpServer());
+    await loginAsStaff(agent);
+
+    await agent
+      .get('/api/v1/customers')
+      .expect(200)
+      .expect((response) => {
+        const amina = response.body.find((item: { id: string }) => item.id === 'customer-001');
+        expect(amina.fullName).toBe('Amina Karimova');
+        expect(amina.ordersCount).toBe(1);
+        expect(amina.repairsCount).toBe(1);
+        expect(new Date(amina.registeredAt).toISOString()).toBe(amina.registeredAt);
+      });
+  });
+
+  it('returns category product counts for admin category list', async () => {
+    const agent = request.agent(app.getHttpServer());
+    await loginAsStaff(agent);
+
+    await agent
+      .get('/api/v1/categories')
+      .expect(200)
+      .expect((response) => {
+        const strings = response.body.find((item: { id: string }) => item.id === 'category-strings');
+        const guitars = response.body.find((item: { id: string }) => item.id === 'category-guitars');
+        expect(strings.productCount).toBe(1);
+        expect(guitars.productCount).toBe(1);
+      });
+  });
+
+  it('returns and updates product min stock quantity', async () => {
+    const agent = request.agent(app.getHttpServer());
+    await loginAsStaff(agent);
+
+    await agent
+      .get('/api/v1/products')
+      .expect(200)
+      .expect((response) => {
+        const product = response.body.find((item: { id: string }) => item.id === 'product-player-strat');
+        expect(product.minStockQty).toBe(2);
+      });
+
+    await agent
+      .put('/api/v1/products/product-player-strat')
+      .send({
+        minStockQty: 5
+      })
+      .expect(200)
+      .expect((response) => {
+        expect(response.body.product.minStockQty).toBe(5);
+      });
+  });
+
+  it('returns repair admin fields and updates a repair', async () => {
+    const agent = request.agent(app.getHttpServer());
+    await loginAsStaff(agent);
+
+    await agent
+      .get('/api/v1/repairs')
+      .expect(200)
+      .expect((response) => {
+        expect(response.body.items[0].estimatedCost).toBe(350000);
+        expect(response.body.items[0].assignedMasterName).toBe('Akmal R.');
+        expect(response.body.items[0].receivedAt).toBe('2026-07-08T00:00:00.000Z');
+      });
+
+    await agent
+      .put('/api/v1/repairs/REP-2001')
+      .send({
+        customerId: 'customer-001',
+        instrumentName: 'Yamaha P-125',
+        brand: 'Yamaha',
+        issue: 'Keys intermittently stop responding again.',
+        status: 'diagnostics',
+        notes: 'Client needs weekend pickup.',
+        estimatedCost: 420000,
+        assignedMasterName: 'Akmal R.',
+        receivedAt: '2026-07-13'
+      })
+      .expect(200)
+      .expect((response) => {
+        expect(response.body.repairRequest.status).toBe('diagnostics');
+        expect(response.body.repairRequest.estimatedCost).toBe(420000);
+        expect(response.body.repairRequest.assignedMasterName).toBe('Akmal R.');
+        expect(response.body.repairRequest.receivedAt).toBe('2026-07-13T00:00:00.000Z');
+      });
+  });
+
+  it('rejects invalid repair updates and missing repairs', async () => {
+    const agent = request.agent(app.getHttpServer());
+    await loginAsStaff(agent);
+
+    await agent
+      .put('/api/v1/repairs/REP-2001')
+      .send({
+        customerId: 'missing-customer',
+        instrumentName: 'Yamaha P-125',
+        brand: 'Yamaha',
+        issue: 'Keys intermittently stop responding again.',
+        status: 'diagnostics',
+        notes: 'Client needs weekend pickup.'
+      })
+      .expect(400)
+      .expect((response) => {
+        expect(response.body.error.code).toBe('validation_error');
+        expect(response.body.error.field).toBe('customerId');
+      });
+
+    await agent
+      .put('/api/v1/repairs/REP-2001')
+      .send({
+        customerId: 'customer-001',
+        instrumentName: 'Yamaha P-125',
+        brand: 'Yamaha',
+        issue: 'Keys intermittently stop responding again.',
+        status: 'diagnostics',
+        notes: 'Client needs weekend pickup.',
+        estimatedCost: -1
+      })
+      .expect(400)
+      .expect((response) => {
+        expect(response.body.error.code).toBe('validation_error');
+        expect(response.body.error.field).toBe('estimatedCost');
+      });
+
+    await agent
+      .put('/api/v1/repairs/REP-2001')
+      .send({
+        customerId: 'customer-001',
+        instrumentName: 'Yamaha P-125',
+        brand: 'Yamaha',
+        issue: 'Keys intermittently stop responding again.',
+        status: 'diagnostics',
+        notes: 'Client needs weekend pickup.',
+        receivedAt: 'not-a-date'
+      })
+      .expect(400)
+      .expect((response) => {
+        expect(response.body.error.code).toBe('validation_error');
+        expect(response.body.error.field).toBe('receivedAt');
+      });
+
+    await agent
+      .put('/api/v1/repairs/REP-9999')
+      .send({
+        customerId: 'customer-001',
+        instrumentName: 'Yamaha P-125',
+        brand: 'Yamaha',
+        issue: 'Keys intermittently stop responding again.',
+        status: 'diagnostics',
+        notes: 'Client needs weekend pickup.'
+      })
+      .expect(404)
+      .expect((response) => {
+        expect(response.body.error.code).toBe('not_found');
+      });
+  });
+
   it('creates a client order, reserves stock and creates a movement', async () => {
     const agent = request.agent(app.getHttpServer());
     await loginAsClient(agent);

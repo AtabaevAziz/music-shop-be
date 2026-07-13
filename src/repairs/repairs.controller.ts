@@ -1,8 +1,9 @@
-import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { SessionAuthGuard } from '../auth/guards/session-auth.guard';
 import { StaffOnlyGuard } from '../auth/guards/staff-only.guard';
 import { CreateRepairDto } from './dto/create-repair.dto';
 import { RepairsService } from './repairs.service';
+import { UpdateRepairDto } from './dto/update-repair.dto';
 
 @Controller('repairs')
 @UseGuards(SessionAuthGuard, StaffOnlyGuard)
@@ -30,5 +31,10 @@ export class RepairsController {
     const repairRequest = await this.repairsService.createRepair(payload);
     return { repairRequest };
   }
-}
 
+  @Put(':id')
+  async updateRepair(@Param('id') id: string, @Body() payload: UpdateRepairDto) {
+    const repairRequest = await this.repairsService.updateRepair(id, payload);
+    return { repairRequest };
+  }
+}

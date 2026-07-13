@@ -80,6 +80,7 @@ model Employee {
 model Customer {
   id           String       @id
   name         String
+  fullName     String?
   phone        String
   email        String       @unique
   tier         CustomerTier
@@ -142,6 +143,7 @@ model Product {
   price            Int
   costPrice        Int
   stockQty         Int
+  minStockQty      Int?
   status           ProductStatus
   shortDescription String
   description      String
@@ -210,6 +212,9 @@ model RepairRequest {
   issue          String
   status         RepairStatus
   notes          String
+  estimatedCost  Int?
+  assignedMasterName String?
+  receivedAt     DateTime?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
   customer       Customer     @relation(fields: [customerId], references: [id], onDelete: Restrict)

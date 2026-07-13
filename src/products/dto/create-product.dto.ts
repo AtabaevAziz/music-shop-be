@@ -47,6 +47,12 @@ export class CreateProductDto {
   @Min(0)
   stockQty!: number;
 
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  minStockQty?: number;
+
   @IsEnum(ProductStatus)
   status!: ProductStatus;
 
@@ -73,4 +79,3 @@ export class CreateProductDto {
   @IsEnum(Condition)
   condition!: Condition;
 }
-

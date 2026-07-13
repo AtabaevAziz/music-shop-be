@@ -1,10 +1,15 @@
-import { IsEmail, IsEnum, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsEnum, IsOptional, IsString, MinLength } from 'class-validator';
 import { CustomerTier } from '../../common/enums/customer-tier.enum';
 
 export class CreateCustomerDto {
   @IsString()
   @MinLength(2)
   name!: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  fullName?: string;
 
   @IsString()
   @MinLength(6)
@@ -24,4 +29,3 @@ export class CreateCustomerDto {
   @MinLength(1)
   notes!: string;
 }
-

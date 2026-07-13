@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Category } from '@prisma/client';
+import { Category, Prisma } from '@prisma/client';
 import { ApiException } from '../common/exceptions/api.exception';
 import { createId } from '../common/utils/id.util';
 import { slugify } from '../common/utils/slug.util';
@@ -14,7 +14,18 @@ type CategoryWire = {
   parentId: string | null;
   status: string;
   description: string;
+  productCount: number;
 };
+
+type CategoryWithCount = Prisma.CategoryGetPayload<{
+  include: {
+    _count: {
+      select: {
+        products: true;
+      };
+    };
+  };
+}>;
 
 @Injectable()
 export class CategoriesService {
@@ -22,6 +33,13 @@ export class CategoriesService {
 
   async listCategories(): Promise<CategoryWire[]> {
     const categories = await this.prisma.category.findMany({
+      include: {
+        _count: {
+          select: {
+            products: true
+          }
+        }
+      },
       orderBy: [{ name: 'asc' }]
     });
 
@@ -162,14 +180,15 @@ export class CategoriesService {
     }
   }
 
-  private toWire(category: Category): CategoryWire {
+  private toWire(category: CategoryWithCount | Category): CategoryWire {
     return {
       id: category.id,
       name: category.name,
       slug: category.slug,
       parentId: category.parentId,
       status: category.status,
-      description: category.description
+      description: category.description,
+      productCount: '_count' in category ? category._count.products : 0
     };
   }
 }
