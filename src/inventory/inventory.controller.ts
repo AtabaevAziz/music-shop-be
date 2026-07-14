@@ -1,11 +1,11 @@
 import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
 import { SessionAuthGuard } from '../auth/guards/session-auth.guard';
-import { StaffOnlyGuard } from '../auth/guards/staff-only.guard';
+import { AdminOnlyGuard } from '../auth/guards/admin-only.guard';
 import { InventoryAdjustmentDto } from './dto/inventory-adjustment.dto';
 import { InventoryService } from './inventory.service';
 
 @Controller('inventory')
-@UseGuards(SessionAuthGuard, StaffOnlyGuard)
+@UseGuards(SessionAuthGuard, AdminOnlyGuard)
 export class InventoryController {
   constructor(private readonly inventoryService: InventoryService) {}
 
@@ -24,4 +24,3 @@ export class InventoryController {
     return this.inventoryService.adjustInventory(payload);
   }
 }
-

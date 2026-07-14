@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { Employee } from '@prisma/client';
 import { ApiException } from '../common/exceptions/api.exception';
+import { Role } from '../common/enums/role.enum';
 import { createId } from '../common/utils/id.util';
 import { PrismaService } from '../database/prisma.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
@@ -39,7 +40,7 @@ export class EmployeesService {
         login: null,
         email: normalizedEmail,
         phone: payload.phone.trim(),
-        role: payload.role as never,
+        role: (payload.role ?? Role.Admin) as never,
         status: payload.status.trim(),
         passwordHash: await bcrypt.hash(normalizedEmail, 10)
       }
@@ -66,7 +67,7 @@ export class EmployeesService {
         name: payload.name?.trim(),
         email: normalizedEmail,
         phone: payload.phone?.trim(),
-        role: payload.role as never,
+        role: payload.role ? (payload.role as never) : undefined,
         status: payload.status?.trim(),
         ...(normalizedEmail && normalizedEmail !== existing.email
           ? { passwordHash: await bcrypt.hash(normalizedEmail, 10) }

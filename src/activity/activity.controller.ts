@@ -1,10 +1,10 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { SessionAuthGuard } from '../auth/guards/session-auth.guard';
-import { StaffOnlyGuard } from '../auth/guards/staff-only.guard';
+import { AdminOnlyGuard } from '../auth/guards/admin-only.guard';
 import { ActivityService } from './activity.service';
 
 @Controller('activity')
-@UseGuards(SessionAuthGuard, StaffOnlyGuard)
+@UseGuards(SessionAuthGuard, AdminOnlyGuard)
 export class ActivityController {
   constructor(private readonly activityService: ActivityService) {}
 
@@ -18,4 +18,3 @@ export class ActivityController {
     return { items };
   }
 }
-

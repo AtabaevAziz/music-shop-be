@@ -1,12 +1,12 @@
 import { Body, Controller, Get, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { SessionAuthGuard } from '../auth/guards/session-auth.guard';
-import { StaffOnlyGuard } from '../auth/guards/staff-only.guard';
+import { AdminOnlyGuard } from '../auth/guards/admin-only.guard';
 import { CreateRepairDto } from './dto/create-repair.dto';
 import { RepairsService } from './repairs.service';
 import { UpdateRepairDto } from './dto/update-repair.dto';
 
 @Controller('repairs')
-@UseGuards(SessionAuthGuard, StaffOnlyGuard)
+@UseGuards(SessionAuthGuard, AdminOnlyGuard)
 export class RepairsController {
   constructor(private readonly repairsService: RepairsService) {}
 

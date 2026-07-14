@@ -1,12 +1,12 @@
 import { Body, Controller, Delete, Get, HttpCode, Param, Post, Put, UseGuards } from '@nestjs/common';
 import { SessionAuthGuard } from '../auth/guards/session-auth.guard';
-import { StaffOnlyGuard } from '../auth/guards/staff-only.guard';
+import { AdminOnlyGuard } from '../auth/guards/admin-only.guard';
 import { CreateBrandDto } from './dto/create-brand.dto';
 import { UpdateBrandDto } from './dto/update-brand.dto';
 import { BrandsService } from './brands.service';
 
 @Controller('brands')
-@UseGuards(SessionAuthGuard, StaffOnlyGuard)
+@UseGuards(SessionAuthGuard, AdminOnlyGuard)
 export class BrandsController {
   constructor(private readonly brandsService: BrandsService) {}
 

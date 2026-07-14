@@ -1,12 +1,12 @@
 import { Body, Controller, Delete, Get, HttpCode, Param, Post, Put, UseGuards } from '@nestjs/common';
 import { SessionAuthGuard } from '../auth/guards/session-auth.guard';
-import { StaffOnlyGuard } from '../auth/guards/staff-only.guard';
+import { AdminOnlyGuard } from '../auth/guards/admin-only.guard';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
 import { EmployeesService } from './employees.service';
 
 @Controller('employees')
-@UseGuards(SessionAuthGuard, StaffOnlyGuard)
+@UseGuards(SessionAuthGuard, AdminOnlyGuard)
 export class EmployeesController {
   constructor(private readonly employeesService: EmployeesService) {}
 
@@ -33,4 +33,3 @@ export class EmployeesController {
     await this.employeesService.deleteEmployee(id);
   }
 }
-

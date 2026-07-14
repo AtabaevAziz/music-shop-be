@@ -88,7 +88,8 @@ Default local setup:
 
 ## Demo accounts
 
-- Staff login: `admin` / `Secret!1`
+- Admin login: `admin` / `Secret!1`
+- Extra admin login: `manager` / `manager@musicshop.local`
 - Client login: `amina@example.com` / `amina@example.com`
 
 ## Notes

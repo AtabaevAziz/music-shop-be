@@ -9,9 +9,6 @@ datasource db {
 
 enum Role {
   admin
-  store_manager
-  catalog_manager
-  sales_operator
   client
 }
 

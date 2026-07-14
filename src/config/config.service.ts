@@ -13,6 +13,20 @@ import { ORDER_STATUS_TRANSITIONS } from '../common/constants/workflow.constants
 export class RuntimeConfigService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private readonly adminNavigation = [
+    'dashboard',
+    'catalog',
+    'inventory',
+    'orders',
+    'customers',
+    'employees',
+    'finance',
+    'settings',
+    'repairs'
+  ] as const;
+
+  private readonly clientNavigation = ['dashboard', 'catalog', 'orders', 'repairs'] as const;
+
   private toDictionary<TValue extends string>(values: TValue[]) {
     return values.map((value) => ({
       value,
@@ -45,7 +59,7 @@ export class RuntimeConfigService {
       authConfig: {
         providers: [
           {
-            id: 'staff-password',
+            id: 'admin-password',
             type: 'password',
             principalType: 'role'
           },
@@ -56,7 +70,7 @@ export class RuntimeConfigService {
           }
         ],
         allowClientLogin: true,
-        allowStaffLogin: true
+        allowAdminLogin: true
       }
     };
   }
@@ -69,63 +83,63 @@ export class RuntimeConfigService {
           path: '/:locale',
           titleKey: 'nav.dashboard',
           subtitleKey: 'meta.appSubtitle',
-          roles: [Role.Admin, Role.StoreManager, Role.CatalogManager, Role.SalesOperator, Role.Client]
+          roles: [Role.Admin, Role.Client]
         },
         {
           id: 'catalog',
           path: '/:locale/catalog',
           titleKey: 'nav.catalog',
           subtitleKey: 'section.catalogSubtitle',
-          roles: [Role.Admin, Role.StoreManager, Role.CatalogManager, Role.Client]
+          roles: [Role.Admin, Role.Client]
         },
         {
           id: 'inventory',
           path: '/:locale/inventory',
           titleKey: 'nav.inventory',
           subtitleKey: 'section.inventorySubtitle',
-          roles: [Role.Admin, Role.StoreManager, Role.CatalogManager]
+          roles: [Role.Admin]
         },
         {
           id: 'orders',
           path: '/:locale/orders',
           titleKey: 'nav.orders',
           subtitleKey: 'section.ordersSubtitle',
-          roles: [Role.Admin, Role.StoreManager, Role.SalesOperator, Role.Client]
+          roles: [Role.Admin, Role.Client]
         },
         {
           id: 'customers',
           path: '/:locale/customers',
           titleKey: 'nav.customers',
           subtitleKey: 'section.customersSubtitle',
-          roles: [Role.Admin, Role.StoreManager, Role.SalesOperator]
+          roles: [Role.Admin]
         },
         {
           id: 'repairs',
           path: '/:locale/repairs',
           titleKey: 'nav.repairs',
           subtitleKey: 'section.repairsSubtitle',
-          roles: [Role.Admin, Role.StoreManager, Role.SalesOperator, Role.Client]
+          roles: [Role.Admin, Role.Client]
         },
         {
           id: 'employees',
           path: '/:locale/employees',
           titleKey: 'nav.employees',
           subtitleKey: 'section.employeesSubtitle',
-          roles: [Role.Admin, Role.StoreManager]
+          roles: [Role.Admin]
         },
         {
           id: 'finance',
           path: '/:locale/finance',
           titleKey: 'nav.finance',
           subtitleKey: 'section.financeSubtitle',
-          roles: [Role.Admin, Role.StoreManager]
+          roles: [Role.Admin]
         },
         {
           id: 'settings',
           path: '/:locale/settings',
           titleKey: 'nav.settings',
           subtitleKey: 'section.settingsSubtitle',
-          roles: [Role.Admin, Role.StoreManager]
+          roles: [Role.Admin]
         }
       ]
     };
@@ -134,11 +148,8 @@ export class RuntimeConfigService {
   getPermissionsConfig() {
     return {
       permissions: {
-        [Role.Admin]: ['dashboard', 'catalog', 'inventory', 'orders', 'customers', 'employees', 'finance', 'settings', 'repairs'],
-        [Role.StoreManager]: ['dashboard', 'catalog', 'inventory', 'orders', 'customers', 'employees', 'finance', 'settings', 'repairs'],
-        [Role.CatalogManager]: ['dashboard', 'catalog', 'inventory'],
-        [Role.SalesOperator]: ['dashboard', 'orders', 'customers', 'repairs'],
-        [Role.Client]: ['dashboard', 'catalog', 'orders', 'repairs']
+        [Role.Admin]: [...this.adminNavigation],
+        [Role.Client]: [...this.clientNavigation]
       }
     };
   }

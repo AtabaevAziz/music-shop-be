@@ -11,14 +11,14 @@ import {
   UseGuards
 } from '@nestjs/common';
 import { SessionAuthGuard } from '../auth/guards/session-auth.guard';
-import { StaffOnlyGuard } from '../auth/guards/staff-only.guard';
+import { AdminOnlyGuard } from '../auth/guards/admin-only.guard';
 import { CreateProductDto } from './dto/create-product.dto';
 import { ProductImageDto } from './dto/product-image.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { ProductsService } from './products.service';
 
 @Controller('products')
-@UseGuards(SessionAuthGuard, StaffOnlyGuard)
+@UseGuards(SessionAuthGuard, AdminOnlyGuard)
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
@@ -68,4 +68,3 @@ export class ProductsController {
     return { product };
   }
 }
-

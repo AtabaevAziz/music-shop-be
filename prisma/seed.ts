@@ -13,7 +13,7 @@ import * as bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
 export async function seedDatabase(client: PrismaClient): Promise<void> {
-  const staffPasswordHash = await bcrypt.hash('Secret!1', 10);
+  const adminPasswordHash = await bcrypt.hash('Secret!1', 10);
   const clientPasswordHash = await bcrypt.hash('amina@example.com', 10);
 
   await client.session.deleteMany();
@@ -62,7 +62,7 @@ export async function seedDatabase(client: PrismaClient): Promise<void> {
       phone: '+998900000001',
       role: Role.admin,
       status: 'active',
-      passwordHash: staffPasswordHash
+      passwordHash: adminPasswordHash
     },
     create: {
       id: 'employee-admin',
@@ -72,27 +72,27 @@ export async function seedDatabase(client: PrismaClient): Promise<void> {
       phone: '+998900000001',
       role: Role.admin,
       status: 'active',
-      passwordHash: staffPasswordHash
+      passwordHash: adminPasswordHash
     }
   });
 
   await client.employee.upsert({
     where: { email: 'manager@musicshop.local' },
     update: {
-      name: 'Store Manager',
+      name: 'Operations Admin',
       login: 'manager',
       phone: '+998901112233',
-      role: Role.store_manager,
+      role: Role.admin,
       status: 'active',
       passwordHash: await bcrypt.hash('manager@musicshop.local', 10)
     },
     create: {
       id: 'employee-001',
-      name: 'Store Manager',
+      name: 'Operations Admin',
       login: 'manager',
       email: 'manager@musicshop.local',
       phone: '+998901112233',
-      role: Role.store_manager,
+      role: Role.admin,
       status: 'active',
       passwordHash: await bcrypt.hash('manager@musicshop.local', 10)
     }

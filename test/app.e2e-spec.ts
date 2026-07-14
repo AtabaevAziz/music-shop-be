@@ -10,7 +10,7 @@ describe('Music Shop initial phase (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
 
-  async function loginAsStaff(agent: ReturnType<typeof request.agent>): Promise<void> {
+  async function loginAsAdmin(agent: ReturnType<typeof request.agent>): Promise<void> {
     await agent
       .post('/api/v1/auth/login')
       .send({
@@ -59,10 +59,10 @@ describe('Music Shop initial phase (e2e)', () => {
       });
   });
 
-  it('creates a staff session and returns it via auth/session', async () => {
+  it('creates an admin session and returns it via auth/session', async () => {
     const agent = request.agent(app.getHttpServer());
 
-    await loginAsStaff(agent);
+    await loginAsAdmin(agent);
     await agent
       .get('/api/v1/auth/session')
       .expect(200)
@@ -78,7 +78,7 @@ describe('Music Shop initial phase (e2e)', () => {
 
   it('updates settings and uppercases currency', async () => {
     const agent = request.agent(app.getHttpServer());
-    await loginAsStaff(agent);
+    await loginAsAdmin(agent);
 
     await agent
       .put('/api/v1/settings')
@@ -98,7 +98,7 @@ describe('Music Shop initial phase (e2e)', () => {
 
   it('rejects category self-parenting', async () => {
     const agent = request.agent(app.getHttpServer());
-    await loginAsStaff(agent);
+    await loginAsAdmin(agent);
 
     await agent
       .put('/api/v1/categories/category-guitars')
@@ -114,7 +114,7 @@ describe('Music Shop initial phase (e2e)', () => {
 
   it('rejects duplicate brand names', async () => {
     const agent = request.agent(app.getHttpServer());
-    await loginAsStaff(agent);
+    await loginAsAdmin(agent);
 
     await agent
       .post('/api/v1/brands')
@@ -131,6 +131,26 @@ describe('Music Shop initial phase (e2e)', () => {
       });
   });
 
+  it('returns backend-driven auth config for admin and client sign-in', async () => {
+    await request(app.getHttpServer())
+      .get('/api/v1/config/auth')
+      .expect(200)
+      .expect((response) => {
+        expect(response.body.authConfig.providers).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ id: 'admin-password', type: 'password' }),
+            expect.objectContaining({ id: 'client-password', type: 'password' })
+          ])
+        );
+        expect(response.body.authConfig.providers).not.toEqual(
+          expect.arrayContaining([expect.objectContaining({ id: 'staff-password' })])
+        );
+        expect(response.body.authConfig.allowAdminLogin).toBe(true);
+        expect(response.body.authConfig.allowClientLogin).toBe(true);
+        expect(response.body.authConfig.allowStaffLogin).toBeUndefined();
+      });
+  });
+
   it('returns backend-driven workflows config', async () => {
     await request(app.getHttpServer())
       .get('/api/v1/config/workflows')
@@ -141,7 +161,7 @@ describe('Music Shop initial phase (e2e)', () => {
       });
   });
 
-  it('returns backend-driven navigation and permissions for staff-only sections', async () => {
+  it('returns backend-driven navigation and permissions for admin-only sections', async () => {
     await request(app.getHttpServer())
       .get('/api/v1/config/navigation')
       .expect(200)
@@ -156,6 +176,7 @@ describe('Music Shop initial phase (e2e)', () => {
       .get('/api/v1/config/permissions')
       .expect(200)
       .expect((response) => {
+        expect(Object.keys(response.body.permissions).sort()).toEqual(['admin', 'client']);
         expect(response.body.permissions.admin).toEqual(
           expect.arrayContaining(['employees', 'finance', 'settings'])
         );
@@ -183,12 +204,42 @@ describe('Music Shop initial phase (e2e)', () => {
             { value: 'client', labelKey: 'dynamic.client' }
           ])
         );
+        expect(response.body.dictionaries.roles).toHaveLength(2);
       });
+  });
+
+  it('creates employees as admin by default and rejects non-admin role values', async () => {
+    const agent = request.agent(app.getHttpServer());
+    await loginAsAdmin(agent);
+
+    await agent
+      .post('/api/v1/employees')
+      .send({
+        name: 'Front Desk',
+        email: 'frontdesk@musicshop.local',
+        phone: '+998909998877',
+        status: 'active'
+      })
+      .expect(201)
+      .expect((response) => {
+        expect(response.body.employee.role).toBe('admin');
+      });
+
+    await agent
+      .post('/api/v1/employees')
+      .send({
+        name: 'Legacy Manager',
+        email: 'legacy-manager@musicshop.local',
+        phone: '+998900001122',
+        role: 'client',
+        status: 'active'
+      })
+      .expect(400);
   });
 
   it('rejects invalid order transition', async () => {
     const agent = request.agent(app.getHttpServer());
-    await loginAsStaff(agent);
+    await loginAsAdmin(agent);
 
     await agent
       .post('/api/v1/orders/ORD-1001/status')
@@ -201,9 +252,9 @@ describe('Music Shop initial phase (e2e)', () => {
       });
   });
 
-  it('returns finance summary for staff users', async () => {
+  it('returns finance summary for admin users', async () => {
     const agent = request.agent(app.getHttpServer());
-    await loginAsStaff(agent);
+    await loginAsAdmin(agent);
 
     await agent
       .get('/api/v1/finance/summary')
@@ -216,7 +267,7 @@ describe('Music Shop initial phase (e2e)', () => {
       });
   });
 
-  it('forbids client access to staff finance summary', async () => {
+  it('forbids client access to admin finance summary', async () => {
     const agent = request.agent(app.getHttpServer());
     await loginAsClient(agent);
 
@@ -225,7 +276,7 @@ describe('Music Shop initial phase (e2e)', () => {
 
   it('returns customer aggregates for admin customer list', async () => {
     const agent = request.agent(app.getHttpServer());
-    await loginAsStaff(agent);
+    await loginAsAdmin(agent);
 
     await agent
       .get('/api/v1/customers')
@@ -241,7 +292,7 @@ describe('Music Shop initial phase (e2e)', () => {
 
   it('returns category product counts for admin category list', async () => {
     const agent = request.agent(app.getHttpServer());
-    await loginAsStaff(agent);
+    await loginAsAdmin(agent);
 
     await agent
       .get('/api/v1/categories')
@@ -256,7 +307,7 @@ describe('Music Shop initial phase (e2e)', () => {
 
   it('returns and updates product min stock quantity', async () => {
     const agent = request.agent(app.getHttpServer());
-    await loginAsStaff(agent);
+    await loginAsAdmin(agent);
 
     await agent
       .get('/api/v1/products')
@@ -279,7 +330,7 @@ describe('Music Shop initial phase (e2e)', () => {
 
   it('returns repair admin fields and updates a repair', async () => {
     const agent = request.agent(app.getHttpServer());
-    await loginAsStaff(agent);
+    await loginAsAdmin(agent);
 
     await agent
       .get('/api/v1/repairs')
@@ -314,7 +365,7 @@ describe('Music Shop initial phase (e2e)', () => {
 
   it('rejects invalid repair updates and missing repairs', async () => {
     const agent = request.agent(app.getHttpServer());
-    await loginAsStaff(agent);
+    await loginAsAdmin(agent);
 
     await agent
       .put('/api/v1/repairs/REP-2001')

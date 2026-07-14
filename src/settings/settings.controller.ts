@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Put, UseGuards } from '@nestjs/common';
 import { SessionAuthGuard } from '../auth/guards/session-auth.guard';
-import { StaffOnlyGuard } from '../auth/guards/staff-only.guard';
+import { AdminOnlyGuard } from '../auth/guards/admin-only.guard';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
 import { SettingsService } from './settings.service';
 
@@ -16,7 +16,7 @@ export class SettingsController {
   }
 
   @Put()
-  @UseGuards(StaffOnlyGuard)
+  @UseGuards(AdminOnlyGuard)
   async updateSettings(
     @Body() payload: UpdateSettingsDto
   ): Promise<{ settings: Awaited<ReturnType<SettingsService['updateSettings']>> }> {
