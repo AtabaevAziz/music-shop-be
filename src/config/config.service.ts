@@ -80,63 +80,63 @@ export class RuntimeConfigService {
       items: [
         {
           id: 'dashboard',
-          path: '/:locale',
+          path: '/:locale/app',
           titleKey: 'nav.dashboard',
           subtitleKey: 'meta.appSubtitle',
           roles: [Role.Admin, Role.Client]
         },
         {
           id: 'catalog',
-          path: '/:locale/catalog',
+          path: '/:locale/app/catalog',
           titleKey: 'nav.catalog',
           subtitleKey: 'section.catalogSubtitle',
           roles: [Role.Admin, Role.Client]
         },
         {
           id: 'inventory',
-          path: '/:locale/inventory',
+          path: '/:locale/app/inventory',
           titleKey: 'nav.inventory',
           subtitleKey: 'section.inventorySubtitle',
           roles: [Role.Admin]
         },
         {
           id: 'orders',
-          path: '/:locale/orders',
+          path: '/:locale/app/orders',
           titleKey: 'nav.orders',
           subtitleKey: 'section.ordersSubtitle',
           roles: [Role.Admin, Role.Client]
         },
         {
           id: 'customers',
-          path: '/:locale/customers',
+          path: '/:locale/app/customers',
           titleKey: 'nav.customers',
           subtitleKey: 'section.customersSubtitle',
           roles: [Role.Admin]
         },
         {
           id: 'repairs',
-          path: '/:locale/repairs',
+          path: '/:locale/app/repairs',
           titleKey: 'nav.repairs',
           subtitleKey: 'section.repairsSubtitle',
           roles: [Role.Admin, Role.Client]
         },
         {
           id: 'employees',
-          path: '/:locale/employees',
+          path: '/:locale/app/employees',
           titleKey: 'nav.employees',
           subtitleKey: 'section.employeesSubtitle',
           roles: [Role.Admin]
         },
         {
           id: 'finance',
-          path: '/:locale/finance',
+          path: '/:locale/app/finance',
           titleKey: 'nav.finance',
           subtitleKey: 'section.financeSubtitle',
           roles: [Role.Admin]
         },
         {
           id: 'settings',
-          path: '/:locale/settings',
+          path: '/:locale/app/settings',
           titleKey: 'nav.settings',
           subtitleKey: 'section.settingsSubtitle',
           roles: [Role.Admin]

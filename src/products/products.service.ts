@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, Product } from '@prisma/client';
+import { Condition, Prisma, Product } from '@prisma/client';
 import { ApiException } from '../common/exceptions/api.exception';
 import { createId } from '../common/utils/id.util';
 import { isAbsolutePathOrUrl } from '../common/utils/url.util';
@@ -35,6 +35,38 @@ type ProductFilters = {
   search?: string;
 };
 
+type PublicProductWire = {
+  id: string;
+  name: string;
+  sku: string;
+  price: number;
+  stockQty: number;
+  shortDescription: string;
+  description: string;
+  specs: Record<string, string>;
+  images: string[];
+  primaryImage: string | null;
+  condition: Condition;
+  category: {
+    id: string;
+    name: string;
+    slug: string;
+  };
+  brand: {
+    id: string;
+    name: string;
+    country: string;
+    website: string;
+  };
+};
+
+type ProductWithRelations = Prisma.ProductGetPayload<{
+  include: {
+    brand: true;
+    category: true;
+  };
+}>;
+
 @Injectable()
 export class ProductsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -62,6 +94,49 @@ export class ProductsService {
 
   async listClientProducts(): Promise<ProductWire[]> {
     return this.listProducts({ status: 'active' });
+  }
+
+  async listPublicProducts(filters: Pick<ProductFilters, 'search'> = {}): Promise<PublicProductWire[]> {
+    const products = await this.prisma.product.findMany({
+      where: {
+        status: 'active',
+        ...(filters.search
+          ? {
+              OR: [
+                { name: { contains: filters.search, mode: 'insensitive' } },
+                { sku: { contains: filters.search, mode: 'insensitive' } },
+                { shortDescription: { contains: filters.search, mode: 'insensitive' } }
+              ]
+            }
+          : {})
+      },
+      include: {
+        brand: true,
+        category: true
+      },
+      orderBy: [{ name: 'asc' }]
+    });
+
+    return products.map((product) => this.toPublicWire(product));
+  }
+
+  async getPublicProduct(id: string): Promise<PublicProductWire> {
+    const product = await this.prisma.product.findFirst({
+      where: {
+        id,
+        status: 'active'
+      },
+      include: {
+        brand: true,
+        category: true
+      }
+    });
+
+    if (!product) {
+      throw ApiException.notFound('Product was not found.');
+    }
+
+    return this.toPublicWire(product);
   }
 
   async getProduct(id: string): Promise<ProductWire> {
@@ -315,6 +390,33 @@ export class ProductsService {
       images: product.images,
       primaryImage: product.primaryImage,
       condition: product.condition
+    };
+  }
+
+  private toPublicWire(product: ProductWithRelations): PublicProductWire {
+    return {
+      id: product.id,
+      name: product.name,
+      sku: product.sku,
+      price: product.price,
+      stockQty: product.stockQty,
+      shortDescription: product.shortDescription,
+      description: product.description,
+      specs: product.specs as Record<string, string>,
+      images: product.images,
+      primaryImage: product.primaryImage,
+      condition: product.condition,
+      category: {
+        id: product.category.id,
+        name: product.category.name,
+        slug: product.category.slug
+      },
+      brand: {
+        id: product.brand.id,
+        name: product.brand.name,
+        country: product.brand.country,
+        website: product.brand.website
+      }
     };
   }
 }
