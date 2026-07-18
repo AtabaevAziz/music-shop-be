@@ -27,6 +27,12 @@ export class OrdersController {
     return { items };
   }
 
+  @Get(':id')
+  async getOrder(@Param('id') id: string) {
+    const order = await this.ordersService.getOrderById(id);
+    return { order };
+  }
+
   @Post(':id/status')
   async updateOrderStatus(@Param('id') id: string, @Body() payload: UpdateOrderStatusDto) {
     const order = await this.ordersService.updateOrderStatus(id, payload);

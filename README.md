@@ -14,6 +14,7 @@ NestJS backend for the Music Shop frontend contract.
 - `POST /api/v1/auth/login`
 - `GET /api/v1/auth/session`
 - `POST /api/v1/auth/logout`
+- `GET /api/v1/health`
 - `GET /api/v1/config/app`
 - `GET /api/v1/config/auth`
 - `GET /api/v1/config/navigation`
@@ -48,6 +49,7 @@ NestJS backend for the Music Shop frontend contract.
 - `GET /api/v1/inventory`
 - `POST /api/v1/inventory/adjustments`
 - `GET /api/v1/orders`
+- `GET /api/v1/orders/:id`
 - `POST /api/v1/orders/:id/status`
 - `GET /api/v1/repairs`
 - `POST /api/v1/repairs`
@@ -86,6 +88,13 @@ Default local setup:
 - backend: `http://localhost:8080`
 - frontend origin for cookies/CORS: `http://localhost:3000`
 
+Quick local verification:
+
+1. `GET http://localhost:8080/api/v1/health` returns `200`
+2. `GET http://localhost:8080/api/v1/auth/session` returns `{ "session": null }` before login
+3. frontend `.env.local` points to `http://localhost:8080/api/v1`
+4. `CLIENT_ORIGIN` includes `http://localhost:3000`
+
 ## Demo accounts
 
 - Admin login: `admin` / `Secret!1`
@@ -95,6 +104,7 @@ Default local setup:
 ## Notes
 
 - `GET /api/v1/auth/session` returns `200` with `{ "session": null }` when no valid session exists.
+- `GET /api/v1/health` is the fastest smoke check for frontend/backend reachability in local dev.
 - CORS is restricted by `CLIENT_ORIGIN`; multiple origins can be provided as a comma-separated list.
 - Categories use backend-generated unique slugs.
 - Finance summary is calculated from orders, order items, product costs, and business settings without extra tables.

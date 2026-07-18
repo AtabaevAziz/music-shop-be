@@ -57,6 +57,21 @@ export class OrdersService {
     return orders.map((order) => this.toWire(order));
   }
 
+  async getOrderById(id: string): Promise<OrderWire> {
+    const order = await this.prisma.order.findUnique({
+      where: { id },
+      include: {
+        items: true
+      }
+    });
+
+    if (!order) {
+      throw ApiException.notFound('Order was not found.');
+    }
+
+    return this.toWire(order);
+  }
+
   async updateOrderStatus(id: string, payload: UpdateOrderStatusDto): Promise<{
     id: string;
     status: string;
@@ -236,4 +251,3 @@ export class OrdersService {
     };
   }
 }
-

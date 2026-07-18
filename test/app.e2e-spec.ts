@@ -59,6 +59,18 @@ describe('Music Shop initial phase (e2e)', () => {
       });
   });
 
+  it('returns a public health response for local integration checks', async () => {
+    await request(app.getHttpServer())
+      .get('/api/v1/health')
+      .expect(200)
+      .expect((response) => {
+        expect(response.body.status).toBe('ok');
+        expect(response.body.service).toBe('music-shop-be');
+        expect(response.body.apiPrefix).toBe('/api/v1');
+        expect(new Date(response.body.timestamp).toISOString()).toBe(response.body.timestamp);
+      });
+  });
+
   it('creates an admin session and returns it via auth/session', async () => {
     const agent = request.agent(app.getHttpServer());
 
@@ -123,6 +135,25 @@ describe('Music Shop initial phase (e2e)', () => {
       .expect((response) => {
         expect(response.body).toHaveLength(1);
         expect(response.body[0].brand).toBe('Fender');
+      });
+  });
+
+  it('returns public products without requiring a session', async () => {
+    await request(app.getHttpServer())
+      .get('/api/v1/public/products')
+      .expect(200)
+      .expect((response) => {
+        expect(response.body.items).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              id: 'product-player-strat',
+              category: expect.objectContaining({
+                id: 'category-guitars',
+                slug: 'guitars'
+              })
+            })
+          ])
+        );
       });
   });
 
@@ -244,6 +275,27 @@ describe('Music Shop initial phase (e2e)', () => {
       .expect(409)
       .expect((response) => {
         expect(response.body.error.code).toBe('invalid_transition');
+      });
+  });
+
+  it('returns a single order by id for admin order drill-down', async () => {
+    const agent = request.agent(app.getHttpServer());
+    await loginAsAdmin(agent);
+
+    await agent
+      .get('/api/v1/orders/ORD-1001')
+      .expect(200)
+      .expect((response) => {
+        expect(response.body.order.id).toBe('ORD-1001');
+        expect(response.body.order.items).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              productId: expect.any(String),
+              qty: expect.any(Number),
+              unitPrice: expect.any(Number)
+            })
+          ])
+        );
       });
   });
 
