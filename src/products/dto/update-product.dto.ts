@@ -34,7 +34,8 @@ export class UpdateProductDto {
 
   @IsOptional()
   @IsString()
-  brandId?: string;
+  @MinLength(2)
+  brand?: string;
 
   @IsOptional()
   @Type(() => Number)

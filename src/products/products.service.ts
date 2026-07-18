@@ -14,7 +14,7 @@ type ProductWire = {
   sku: string;
   barcode: string | null;
   categoryId: string;
-  brandId: string;
+  brand: string;
   price: number;
   costPrice: number;
   stockQty: number;
@@ -31,7 +31,7 @@ type ProductWire = {
 type ProductFilters = {
   status?: string;
   categoryId?: string;
-  brandId?: string;
+  brand?: string;
   search?: string;
 };
 
@@ -52,17 +52,11 @@ type PublicProductWire = {
     name: string;
     slug: string;
   };
-  brand: {
-    id: string;
-    name: string;
-    country: string;
-    website: string;
-  };
+  brand: string;
 };
 
 type ProductWithRelations = Prisma.ProductGetPayload<{
   include: {
-    brand: true;
     category: true;
   };
 }>;
@@ -76,12 +70,15 @@ export class ProductsService {
       where: {
         ...(filters.status ? { status: filters.status as never } : {}),
         ...(filters.categoryId ? { categoryId: filters.categoryId } : {}),
-        ...(filters.brandId ? { brandId: filters.brandId } : {}),
+        ...(filters.brand
+          ? { brand: { equals: filters.brand, mode: 'insensitive' } }
+          : {}),
         ...(filters.search
           ? {
               OR: [
                 { name: { contains: filters.search, mode: 'insensitive' } },
-                { sku: { contains: filters.search, mode: 'insensitive' } }
+                { sku: { contains: filters.search, mode: 'insensitive' } },
+                { brand: { contains: filters.search, mode: 'insensitive' } }
               ]
             }
           : {})
@@ -105,13 +102,13 @@ export class ProductsService {
               OR: [
                 { name: { contains: filters.search, mode: 'insensitive' } },
                 { sku: { contains: filters.search, mode: 'insensitive' } },
-                { shortDescription: { contains: filters.search, mode: 'insensitive' } }
+                { shortDescription: { contains: filters.search, mode: 'insensitive' } },
+                { brand: { contains: filters.search, mode: 'insensitive' } }
               ]
             }
           : {})
       },
       include: {
-        brand: true,
         category: true
       },
       orderBy: [{ name: 'asc' }]
@@ -127,7 +124,6 @@ export class ProductsService {
         status: 'active'
       },
       include: {
-        brand: true,
         category: true
       }
     });
@@ -152,7 +148,6 @@ export class ProductsService {
   async createProduct(payload: CreateProductDto): Promise<ProductWire> {
     await this.assertUniqueSku(payload.sku);
     await this.assertCategoryExists(payload.categoryId);
-    await this.assertBrandExists(payload.brandId);
     this.assertValidSpecs(payload.specs);
     this.assertValidImages(payload.images, payload.primaryImage);
 
@@ -163,7 +158,7 @@ export class ProductsService {
         sku: payload.sku.trim(),
         barcode: payload.barcode?.trim() ?? null,
         categoryId: payload.categoryId,
-        brandId: payload.brandId,
+        brand: payload.brand.trim(),
         price: payload.price,
         costPrice: payload.costPrice,
         stockQty: payload.stockQty,
@@ -196,10 +191,6 @@ export class ProductsService {
       await this.assertCategoryExists(payload.categoryId);
     }
 
-    if (payload.brandId) {
-      await this.assertBrandExists(payload.brandId);
-    }
-
     if (payload.specs) {
       this.assertValidSpecs(payload.specs);
     }
@@ -215,7 +206,7 @@ export class ProductsService {
         sku: payload.sku?.trim(),
         barcode: payload.barcode === undefined ? undefined : payload.barcode.trim(),
         categoryId: payload.categoryId,
-        brandId: payload.brandId,
+        brand: payload.brand?.trim(),
         price: payload.price,
         costPrice: payload.costPrice,
         stockQty: payload.stockQty,
@@ -335,14 +326,6 @@ export class ProductsService {
     }
   }
 
-  private async assertBrandExists(brandId: string): Promise<void> {
-    const brand = await this.prisma.brand.findUnique({ where: { id: brandId } });
-
-    if (!brand) {
-      throw ApiException.validation('Brand must exist.', 'brandId');
-    }
-  }
-
   private assertValidSpecs(specs: Record<string, string>): void {
     for (const [key, value] of Object.entries(specs)) {
       if (!key.trim() || !String(value).trim()) {
@@ -378,7 +361,7 @@ export class ProductsService {
       sku: product.sku,
       barcode: product.barcode,
       categoryId: product.categoryId,
-      brandId: product.brandId,
+      brand: product.brand,
       price: product.price,
       costPrice: product.costPrice,
       stockQty: product.stockQty,
@@ -411,12 +394,7 @@ export class ProductsService {
         name: product.category.name,
         slug: product.category.slug
       },
-      brand: {
-        id: product.brand.id,
-        name: product.brand.name,
-        country: product.brand.country,
-        website: product.brand.website
-      }
+      brand: product.brand
     };
   }
 }

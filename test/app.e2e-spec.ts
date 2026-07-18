@@ -112,22 +112,17 @@ describe('Music Shop initial phase (e2e)', () => {
       });
   });
 
-  it('rejects duplicate brand names', async () => {
+  it('searches products by inline brand text', async () => {
     const agent = request.agent(app.getHttpServer());
     await loginAsAdmin(agent);
 
     await agent
-      .post('/api/v1/brands')
-      .send({
-        name: 'Fender',
-        country: 'USA',
-        website: 'https://www.fender.com',
-        status: 'active'
-      })
-      .expect(409)
+      .get('/api/v1/products')
+      .query({ search: 'fender' })
+      .expect(200)
       .expect((response) => {
-        expect(response.body.error.code).toBe('conflict');
-        expect(response.body.error.field).toBe('name');
+        expect(response.body).toHaveLength(1);
+        expect(response.body[0].brand).toBe('Fender');
       });
   });
 

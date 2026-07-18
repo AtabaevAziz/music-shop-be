@@ -119,24 +119,13 @@ model Category {
   products    Product[]
 }
 
-model Brand {
-  id        String   @id
-  name      String   @unique
-  country   String
-  website   String
-  status    String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  products  Product[]
-}
-
 model Product {
   id               String              @id
   name             String
   sku              String              @unique
   barcode          String?
   categoryId       String
-  brandId          String
+  brand            String
   price            Int
   costPrice        Int
   stockQty         Int
@@ -151,13 +140,12 @@ model Product {
   createdAt        DateTime            @default(now())
   updatedAt        DateTime            @updatedAt
   category         Category            @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  brand            Brand               @relation(fields: [brandId], references: [id], onDelete: Restrict)
   inventoryMoves   InventoryMovement[]
   orderItems       OrderItem[]
 
   @@index([status])
   @@index([categoryId])
-  @@index([brandId])
+  @@index([brand])
 }
 
 model InventoryMovement {

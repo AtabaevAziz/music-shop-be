@@ -26,10 +26,10 @@ export class ProductsController {
   listProducts(
     @Query('status') status?: string,
     @Query('categoryId') categoryId?: string,
-    @Query('brandId') brandId?: string,
+    @Query('brand') brand?: string,
     @Query('search') search?: string
   ) {
-    return this.productsService.listProducts({ status, categoryId, brandId, search });
+    return this.productsService.listProducts({ status, categoryId, brand, search });
   }
 
   @Get(':id')

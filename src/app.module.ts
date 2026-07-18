@@ -2,7 +2,6 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ActivityModule } from './activity/activity.module';
 import { AuthModule } from './auth/auth.module';
-import { BrandsModule } from './brands/brands.module';
 import { CategoriesModule } from './categories/categories.module';
 import { ClientModule } from './client/client.module';
 import { ConfigRuntimeModule } from './config/config.module';
@@ -25,7 +24,6 @@ import { SettingsModule } from './settings/settings.module';
     ConfigRuntimeModule,
     SettingsModule,
     CategoriesModule,
-    BrandsModule,
     CustomersModule,
     EmployeesModule,
     FinanceModule,

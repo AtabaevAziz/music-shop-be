@@ -30,7 +30,8 @@ export class CreateProductDto {
   categoryId!: string;
 
   @IsString()
-  brandId!: string;
+  @MinLength(2)
+  brand!: string;
 
   @Type(() => Number)
   @IsInt()

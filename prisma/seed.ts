@@ -35,7 +35,6 @@ export async function seedDatabase(client: PrismaClient): Promise<void> {
       parentId: null
     }
   });
-  await client.brand.deleteMany();
 
   await client.businessSettings.upsert({
     where: { id: 'business-settings' },
@@ -168,26 +167,6 @@ export async function seedDatabase(client: PrismaClient): Promise<void> {
     skipDuplicates: true
   });
 
-  await client.brand.createMany({
-    data: [
-      {
-        id: 'brand-fender',
-        name: 'Fender',
-        country: 'USA',
-        website: 'https://www.fender.com',
-        status: 'active'
-      },
-      {
-        id: 'brand-yamaha',
-        name: 'Yamaha',
-        country: 'Japan',
-        website: 'https://www.yamaha.com',
-        status: 'active'
-      }
-    ],
-    skipDuplicates: true
-  });
-
   await client.product.createMany({
     data: [
       {
@@ -196,7 +175,7 @@ export async function seedDatabase(client: PrismaClient): Promise<void> {
         sku: 'FEN-STRAT-001',
         barcode: '1234567890123',
         categoryId: 'category-guitars',
-        brandId: 'brand-fender',
+        brand: 'Fender',
         price: 9800000,
         costPrice: 7600000,
         stockQty: 4,
@@ -218,7 +197,7 @@ export async function seedDatabase(client: PrismaClient): Promise<void> {
         sku: 'YAM-P125-001',
         barcode: '3210987654321',
         categoryId: 'category-strings',
-        brandId: 'brand-yamaha',
+        brand: 'Yamaha',
         price: 8700000,
         costPrice: 6900000,
         stockQty: 2,
