@@ -144,7 +144,9 @@ export class CustomersService {
         data: {
           name: normalizedName,
           fullName: customerByPhone.fullName || normalizedName,
-          email: customerByPhone.email || normalizedEmail,
+          ...(payload.email?.trim()
+            ? { email: normalizedEmail }
+            : {}),
           status: 'active'
         }
       });
