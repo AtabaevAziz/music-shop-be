@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { Customer, Prisma } from '@prisma/client';
+import { CustomerTier } from '../common/enums/customer-tier.enum';
 import { ApiException } from '../common/exceptions/api.exception';
 import { createId } from '../common/utils/id.util';
 import { PrismaService } from '../database/prisma.service';
@@ -106,6 +107,64 @@ export class CustomersService {
     return this.toWire(customer);
   }
 
+  async findOrCreatePublicCustomer(payload: {
+    name: string;
+    phone: string;
+    email?: string;
+  }): Promise<Customer> {
+    const normalizedName = payload.name.trim();
+    const normalizedPhone = payload.phone.trim();
+    const normalizedEmail =
+      payload.email?.trim().toLowerCase() || this.buildGuestEmail(normalizedPhone);
+
+    const customerByEmail = await this.prisma.customer.findUnique({
+      where: { email: normalizedEmail }
+    });
+
+    if (customerByEmail) {
+      return this.prisma.customer.update({
+        where: { id: customerByEmail.id },
+        data: {
+          name: normalizedName,
+          fullName: normalizedName,
+          phone: normalizedPhone,
+          status: 'active'
+        }
+      });
+    }
+
+    const customerByPhone = await this.prisma.customer.findFirst({
+      where: { phone: normalizedPhone },
+      orderBy: [{ createdAt: 'desc' }]
+    });
+
+    if (customerByPhone) {
+      return this.prisma.customer.update({
+        where: { id: customerByPhone.id },
+        data: {
+          name: normalizedName,
+          fullName: customerByPhone.fullName || normalizedName,
+          email: customerByPhone.email || normalizedEmail,
+          status: 'active'
+        }
+      });
+    }
+
+    return this.prisma.customer.create({
+      data: {
+        id: createId('customer'),
+        name: normalizedName,
+        fullName: normalizedName,
+        phone: normalizedPhone,
+        email: normalizedEmail,
+        tier: CustomerTier.Standard,
+        status: 'active',
+        notes: 'Created from public storefront flow',
+        passwordHash: await bcrypt.hash(normalizedEmail, 10)
+      }
+    });
+  }
+
   async updateCustomer(id: string, payload: UpdateCustomerDto): Promise<CustomerWire> {
     const existing = await this.prisma.customer.findUnique({ where: { id } });
 
@@ -185,5 +244,10 @@ export class CustomersService {
       repairsCount,
       registeredAt: customer.createdAt
     };
+  }
+
+  private buildGuestEmail(phone: string): string {
+    const normalizedDigits = phone.replace(/\D+/g, '') || createId('guest');
+    return `guest-${normalizedDigits}@public.music-service.local`;
   }
 }
