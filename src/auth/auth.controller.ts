@@ -21,9 +21,10 @@ export class AuthController {
 
     response.cookie(this.sessionService.cookieName, result.sessionId, {
       httpOnly: true,
-      sameSite: 'lax',
+      sameSite: this.sessionService.sameSiteCookie,
       secure: this.sessionService.secureCookie,
       maxAge: this.sessionService.sessionTtlMs,
+      domain: this.sessionService.cookieDomain,
       path: '/'
     });
 
@@ -52,8 +53,9 @@ export class AuthController {
     await this.sessionService.clearSession(sessionId);
     response.clearCookie(this.sessionService.cookieName, {
       httpOnly: true,
-      sameSite: 'lax',
+      sameSite: this.sessionService.sameSiteCookie,
       secure: this.sessionService.secureCookie,
+      domain: this.sessionService.cookieDomain,
       path: '/'
     });
   }

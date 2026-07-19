@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { createId } from '../common/utils/id.util';
 import {
   DEFAULT_SESSION_COOKIE_NAME,
+  DEFAULT_SESSION_COOKIE_SAME_SITE,
   DEFAULT_SESSION_TTL_HOURS
 } from '../common/constants/auth.constants';
 import { PrismaService } from '../database/prisma.service';
@@ -34,6 +35,25 @@ export class SessionService {
 
   get secureCookie(): boolean {
     return (this.configService.get<string>('SESSION_SECURE_COOKIE') ?? 'false') === 'true';
+  }
+
+  get sameSiteCookie(): 'lax' | 'strict' | 'none' {
+    const configuredValue =
+      this.configService.get<string>('SESSION_COOKIE_SAME_SITE') ??
+      DEFAULT_SESSION_COOKIE_SAME_SITE;
+    const normalizedValue = configuredValue.trim().toLowerCase();
+
+    if (normalizedValue === 'strict' || normalizedValue === 'none') {
+      return normalizedValue;
+    }
+
+    return 'lax';
+  }
+
+  get cookieDomain(): string | undefined {
+    const configuredValue = this.configService.get<string>('SESSION_COOKIE_DOMAIN');
+    const normalizedValue = configuredValue?.trim();
+    return normalizedValue ? normalizedValue : undefined;
   }
 
   async createEmployeeSession(employee: Employee): Promise<{ sessionId: string; session: SessionDto }> {

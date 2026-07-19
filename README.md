@@ -108,6 +108,8 @@ Quick local verification:
 - CORS is restricted by `CLIENT_ORIGIN`; multiple origins can be provided as a comma-separated list.
 - Categories use backend-generated unique slugs.
 - Finance summary is calculated from orders, order items, product costs, and business settings without extra tables.
+- For a free remote deployment that keeps data after the local computer is off, see `../FREE_DEPLOYMENT.md`.
+- When frontend and backend are deployed on different domains, use `SESSION_SECURE_COOKIE=true` and `SESSION_COOKIE_SAME_SITE=none`.
 
 ## Tests
 
