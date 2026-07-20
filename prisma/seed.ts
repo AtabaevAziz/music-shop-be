@@ -148,18 +148,18 @@ export async function seedDatabase(client: PrismaClient): Promise<void> {
   await client.category.createMany({
     data: [
       {
-        id: 'category-strings',
-        name: 'Strings',
-        slug: 'strings',
+        id: 'category-pianos',
+        name: 'Digital Pianos',
+        slug: 'pianos',
         parentId: null,
         status: 'active',
-        description: 'String instruments and accessories'
+        description: 'Portable and stage pianos'
       },
       {
         id: 'category-guitars',
         name: 'Guitars',
         slug: 'guitars',
-        parentId: 'category-strings',
+        parentId: null,
         status: 'active',
         description: 'Electric and acoustic guitars'
       }
@@ -187,8 +187,8 @@ export async function seedDatabase(client: PrismaClient): Promise<void> {
           Body: 'Alder',
           Neck: 'Maple'
         },
-        images: ['/products/fender-player-stratocaster.jpg'],
-        primaryImage: '/products/fender-player-stratocaster.jpg',
+        images: ['/assets/fender-player-stratocaster.jpg'],
+        primaryImage: '/assets/fender-player-stratocaster.jpg',
         condition: Condition.new
       },
       {
@@ -196,7 +196,7 @@ export async function seedDatabase(client: PrismaClient): Promise<void> {
         name: 'Yamaha P-125',
         sku: 'YAM-P125-001',
         barcode: '3210987654321',
-        categoryId: 'category-strings',
+        categoryId: 'category-pianos',
         brand: 'Yamaha',
         price: 8700000,
         costPrice: 6900000,
@@ -209,8 +209,8 @@ export async function seedDatabase(client: PrismaClient): Promise<void> {
           Keys: '88',
           Action: 'GHS'
         },
-        images: ['/products/yamaha-p125.jpg'],
-        primaryImage: '/products/yamaha-p125.jpg',
+        images: ['/assets/yamaha-p125.jpg'],
+        primaryImage: '/assets/yamaha-p125.jpg',
         condition: Condition.new
       }
     ],

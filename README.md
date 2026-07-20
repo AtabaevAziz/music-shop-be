@@ -87,6 +87,7 @@ Default local setup:
 
 - backend: `http://localhost:8080`
 - frontend origin for cookies/CORS: `http://localhost:3000`
+- seeded local product media paths: `/assets/...`
 
 Quick local verification:
 

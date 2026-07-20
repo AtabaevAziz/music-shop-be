@@ -149,7 +149,9 @@ export class ProductsService {
     await this.assertUniqueSku(payload.sku);
     await this.assertCategoryExists(payload.categoryId);
     this.assertValidSpecs(payload.specs);
-    this.assertValidImages(payload.images, payload.primaryImage);
+    const images = this.normalizeImageList(payload.images);
+    const primaryImage = this.resolvePrimaryImage(payload.primaryImage, images);
+    this.assertValidImages(images, primaryImage ?? undefined);
 
     const product = await this.prisma.product.create({
       data: {
@@ -167,8 +169,8 @@ export class ProductsService {
         shortDescription: payload.shortDescription.trim(),
         description: payload.description.trim(),
         specs: payload.specs,
-        images: payload.images,
-        primaryImage: payload.primaryImage ?? payload.images[0],
+        images,
+        primaryImage,
         condition: payload.condition as never
       }
     });
@@ -195,8 +197,11 @@ export class ProductsService {
       this.assertValidSpecs(payload.specs);
     }
 
-    const nextImages = payload.images ?? existing.images;
-    const nextPrimaryImage = payload.primaryImage ?? existing.primaryImage ?? nextImages[0] ?? null;
+    const nextImages = this.normalizeImageList(payload.images ?? existing.images);
+    const nextPrimaryImage = this.resolvePrimaryImage(
+      payload.primaryImage === undefined ? existing.primaryImage : payload.primaryImage,
+      nextImages
+    );
     this.assertValidImages(nextImages, nextPrimaryImage ?? undefined);
 
     const product = await this.prisma.product.update({
@@ -215,7 +220,7 @@ export class ProductsService {
         shortDescription: payload.shortDescription?.trim(),
         description: payload.description?.trim(),
         specs: payload.specs as Prisma.InputJsonValue | undefined,
-        images: payload.images,
+        images: nextImages,
         primaryImage: nextPrimaryImage,
         condition: payload.condition as never
       }
@@ -251,25 +256,31 @@ export class ProductsService {
       throw ApiException.notFound('Product was not found.');
     }
 
-    const image = payload.image.trim();
+    const image = this.normalizeImagePath(payload.image);
     this.assertImageValue(image);
 
-    if (product.images.includes(image)) {
+    const images = this.normalizeImageList(product.images);
+
+    if (images.includes(image)) {
       throw ApiException.conflict('Product image already exists.', 'image');
     }
 
-    const images = [...product.images, image];
     const updated = await this.prisma.product.update({
       where: { id },
       data: {
-        images
+        images: [...images, image],
+        primaryImage: product.primaryImage
+          ? this.normalizeImagePath(product.primaryImage)
+          : null
       }
     });
 
     return {
       id: updated.id,
-      images: updated.images,
+      images: this.normalizeImageList(updated.images),
       primaryImage: updated.primaryImage
+        ? this.normalizeImagePath(updated.primaryImage)
+        : null
     };
   }
 
@@ -280,15 +291,17 @@ export class ProductsService {
       throw ApiException.notFound('Product was not found.');
     }
 
-    const image = payload.image.trim();
+    const image = this.normalizeImagePath(payload.image);
+    const images = this.normalizeImageList(product.images);
 
-    if (!product.images.includes(image)) {
+    if (!images.includes(image)) {
       throw ApiException.validation('Primary image must belong to this product.', 'image');
     }
 
     const updated = await this.prisma.product.update({
       where: { id },
       data: {
+        images,
         primaryImage: image
       }
     });
@@ -296,6 +309,8 @@ export class ProductsService {
     return {
       id: updated.id,
       primaryImage: updated.primaryImage
+        ? this.normalizeImagePath(updated.primaryImage)
+        : null
     };
   }
 
@@ -340,6 +355,49 @@ export class ProductsService {
     }
   }
 
+  private normalizeImagePath(image: string): string {
+    const trimmedImage = image.trim();
+
+    if (/^https?:\/\//.test(trimmedImage)) {
+      return trimmedImage;
+    }
+
+    const normalizedPath = trimmedImage.replace(/^\/+/, '');
+
+    if (normalizedPath.startsWith('public/products/')) {
+      return `/assets/${normalizedPath.slice('public/products/'.length)}`;
+    }
+
+    if (normalizedPath.startsWith('products/')) {
+      return `/assets/${normalizedPath.slice('products/'.length)}`;
+    }
+
+    if (normalizedPath.startsWith('public/assets/')) {
+      return `/${normalizedPath.slice('public/'.length)}`;
+    }
+
+    if (normalizedPath.startsWith('assets/')) {
+      return `/${normalizedPath}`;
+    }
+
+    return trimmedImage;
+  }
+
+  private normalizeImageList(images: string[]): string[] {
+    return images.map((image) => this.normalizeImagePath(image));
+  }
+
+  private resolvePrimaryImage(
+    primaryImage: string | null | undefined,
+    images: string[]
+  ): string | null {
+    if (primaryImage === undefined || primaryImage === null || primaryImage.trim() === '') {
+      return images[0] ?? null;
+    }
+
+    return this.normalizeImagePath(primaryImage);
+  }
+
   private assertValidImages(images: string[], primaryImage?: string): void {
     if (images.length === 0) {
       throw ApiException.validation('Product must include at least one image.', 'images');
@@ -370,8 +428,10 @@ export class ProductsService {
       shortDescription: product.shortDescription,
       description: product.description,
       specs: product.specs as Record<string, string>,
-      images: product.images,
-      primaryImage: product.primaryImage,
+      images: this.normalizeImageList(product.images),
+      primaryImage: product.primaryImage
+        ? this.normalizeImagePath(product.primaryImage)
+        : null,
       condition: product.condition
     };
   }
@@ -386,8 +446,10 @@ export class ProductsService {
       shortDescription: product.shortDescription,
       description: product.description,
       specs: product.specs as Record<string, string>,
-      images: product.images,
-      primaryImage: product.primaryImage,
+      images: this.normalizeImageList(product.images),
+      primaryImage: product.primaryImage
+        ? this.normalizeImagePath(product.primaryImage)
+        : null,
       condition: product.condition,
       category: {
         id: product.category.id,
