@@ -54,17 +54,7 @@ export class CustomersService {
   }
 
   async getCustomerById(id: string): Promise<CustomerWire> {
-    const customer = await this.prisma.customer.findUnique({
-      where: { id },
-      include: {
-        _count: {
-          select: {
-            orders: true,
-            repairs: true
-          }
-        }
-      }
-    });
+    const customer = await this.findCustomerWithCounts(id);
 
     if (!customer) {
       throw ApiException.notFound('Customer was not found.');
@@ -104,7 +94,13 @@ export class CustomersService {
       }
     });
 
-    return this.toWire(customer);
+    const createdCustomer = await this.findCustomerWithCounts(customer.id);
+
+    if (!createdCustomer) {
+      throw ApiException.notFound('Customer was not found after creation.');
+    }
+
+    return this.toWire(createdCustomer);
   }
 
   async findOrCreatePublicCustomer(payload: {
@@ -195,7 +191,13 @@ export class CustomersService {
       }
     });
 
-    return this.toWire(customer);
+    const updatedCustomer = await this.findCustomerWithCounts(customer.id);
+
+    if (!updatedCustomer) {
+      throw ApiException.notFound('Customer was not found after update.');
+    }
+
+    return this.toWire(updatedCustomer);
   }
 
   async deleteCustomer(id: string): Promise<void> {
@@ -227,6 +229,20 @@ export class CustomersService {
     if (existing && existing.id !== customerId) {
       throw ApiException.conflict('Customer email must be unique.', 'email');
     }
+  }
+
+  private findCustomerWithCounts(id: string): Promise<CustomerWithCounts | null> {
+    return this.prisma.customer.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: {
+            orders: true,
+            repairs: true
+          }
+        }
+      }
+    });
   }
 
   private toWire(customer: CustomerWithCounts | Customer): CustomerWire {

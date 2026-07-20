@@ -26,6 +26,8 @@ type ProductWire = {
   images: string[];
   primaryImage: string | null;
   condition: string;
+  createdAt: Date;
+  updatedAt: Date;
 };
 
 type ProductFilters = {
@@ -432,7 +434,9 @@ export class ProductsService {
       primaryImage: product.primaryImage
         ? this.normalizeImagePath(product.primaryImage)
         : null,
-      condition: product.condition
+      condition: product.condition,
+      createdAt: product.createdAt,
+      updatedAt: product.updatedAt
     };
   }
 
