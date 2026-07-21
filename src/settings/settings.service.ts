@@ -39,17 +39,19 @@ export class SettingsService {
     defaultProductStatus: string;
     defaultMarkupPercent: number;
   }> {
+    const normalizedCurrency = payload.currency.trim().toUpperCase();
+
     const settings = await this.prisma.businessSettings.upsert({
       where: { id: 'business-settings' },
       update: {
-        currency: payload.currency.toUpperCase(),
+        currency: normalizedCurrency,
         lowStockThreshold: payload.lowStockThreshold,
         defaultProductStatus: payload.defaultProductStatus as never,
         defaultMarkupPercent: payload.defaultMarkupPercent
       },
       create: {
         id: 'business-settings',
-        currency: payload.currency.toUpperCase(),
+        currency: normalizedCurrency,
         lowStockThreshold: payload.lowStockThreshold,
         defaultProductStatus: payload.defaultProductStatus as never,
         defaultMarkupPercent: payload.defaultMarkupPercent

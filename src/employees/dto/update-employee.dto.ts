@@ -23,6 +23,6 @@ export class UpdateEmployeeDto {
 
   @IsOptional()
   @IsString()
-  @MinLength(1)
+  @IsIn(['active', 'inactive'])
   status?: string;
 }

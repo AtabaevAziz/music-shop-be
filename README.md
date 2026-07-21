@@ -27,10 +27,6 @@ NestJS backend for the Music Shop frontend contract.
 - `POST /api/v1/categories`
 - `PUT /api/v1/categories/:id`
 - `DELETE /api/v1/categories/:id`
-- `GET /api/v1/brands`
-- `POST /api/v1/brands`
-- `PUT /api/v1/brands/:id`
-- `DELETE /api/v1/brands/:id`
 - `GET /api/v1/customers`
 - `POST /api/v1/customers`
 - `PUT /api/v1/customers/:id`
@@ -46,7 +42,7 @@ NestJS backend for the Music Shop frontend contract.
 - `DELETE /api/v1/products/:id`
 - `POST /api/v1/products/:id/images`
 - `POST /api/v1/products/:id/primary-image`
-- `GET /api/v1/inventory`
+- `GET /api/v1/inventory/movements`
 - `POST /api/v1/inventory/adjustments`
 - `GET /api/v1/orders`
 - `GET /api/v1/orders/:id`
@@ -61,6 +57,10 @@ NestJS backend for the Music Shop frontend contract.
 - `POST /api/v1/client/orders`
 - `GET /api/v1/client/repairs`
 - `POST /api/v1/client/repairs`
+- `GET /api/v1/public/products`
+- `GET /api/v1/public/products/:id`
+- `POST /api/v1/public/orders`
+- `POST /api/v1/public/repairs`
 
 ## Setup
 
@@ -71,6 +71,13 @@ NestJS backend for the Music Shop frontend contract.
 5. Apply the initial migration with `npx prisma migrate dev`.
 6. Seed demo data with `npx prisma db seed`.
 7. Start the app with `npm run start:dev`.
+
+Schema source of truth:
+
+- Prisma schema: `prisma/schema.prisma`
+- Prisma migrations: `prisma/migrations/*`
+- Seed data: `prisma/seed.ts`
+- Root `../Script.sql` is a reporting/diagnostic query pack and does not create the schema
 
 Local PostgreSQL options:
 
@@ -95,6 +102,23 @@ Quick local verification:
 2. `GET http://localhost:8080/api/v1/auth/session` returns `{ "session": null }` before login
 3. frontend `.env.local` points to `http://localhost:8080/api/v1`
 4. `CLIENT_ORIGIN` includes `http://localhost:3000`
+5. `SESSION_SECURE_COOKIE=false` and `SESSION_COOKIE_SAME_SITE=lax` for local HTTP development
+
+Local auth smoke check:
+
+```bash
+npm run smoke:local-auth
+```
+
+Optional overrides:
+
+```bash
+API_BASE_URL=http://localhost:8080/api/v1 \
+CLIENT_ORIGIN=http://localhost:3000 \
+ADMIN_LOGIN=admin \
+ADMIN_PASSWORD=Secret!1 \
+npm run smoke:local-auth
+```
 
 ## Demo accounts
 
@@ -107,6 +131,7 @@ Quick local verification:
 - `GET /api/v1/auth/session` returns `200` with `{ "session": null }` when no valid session exists.
 - `GET /api/v1/health` is the fastest smoke check for frontend/backend reachability in local dev.
 - CORS is restricted by `CLIENT_ORIGIN`; multiple origins can be provided as a comma-separated list.
+- Keep `SESSION_COOKIE_SAME_SITE=lax` for local same-site development on `localhost`; switch to `SESSION_COOKIE_SAME_SITE=none` with `SESSION_SECURE_COOKIE=true` when frontend and backend are deployed on different domains.
 - Categories use backend-generated unique slugs.
 - Finance summary is calculated from orders, order items, product costs, and business settings without extra tables.
 - For a free remote deployment that keeps data after the local computer is off, see `../FREE_DEPLOYMENT.md`.

@@ -13,9 +13,11 @@ export class AuthService {
   ) {}
 
   async login(payload: LoginDto): Promise<{ sessionId: string; session: { role: string; name: string; customerId?: string } }> {
+    const normalizedLogin = payload.login.trim().toLowerCase();
+
     const employee = await this.prisma.employee.findFirst({
       where: {
-        OR: [{ login: payload.login }, { email: payload.login }]
+        OR: [{ login: normalizedLogin }, { email: normalizedLogin }]
       }
     });
 
@@ -34,7 +36,7 @@ export class AuthService {
     }
 
     const customer = await this.prisma.customer.findUnique({
-      where: { email: payload.login }
+      where: { email: normalizedLogin }
     });
 
     if (!customer) {
@@ -54,4 +56,3 @@ export class AuthService {
     return this.sessionService.createCustomerSession(customer);
   }
 }
-

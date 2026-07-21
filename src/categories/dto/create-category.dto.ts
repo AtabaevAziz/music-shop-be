@@ -1,4 +1,4 @@
-import { IsOptional, IsString, MinLength, ValidateIf } from 'class-validator';
+import { IsIn, IsOptional, IsString, MinLength, ValidateIf } from 'class-validator';
 
 export class CreateCategoryDto {
   @IsString()
@@ -11,7 +11,7 @@ export class CreateCategoryDto {
   parentId?: string | null;
 
   @IsString()
-  @MinLength(1)
+  @IsIn(['active', 'inactive'])
   status!: string;
 
   @IsString()

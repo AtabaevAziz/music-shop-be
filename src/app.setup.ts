@@ -2,6 +2,7 @@ import { INestApplication, ValidationError, ValidationPipe } from '@nestjs/commo
 import cookieParser from 'cookie-parser';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { ApiException } from './common/exceptions/api.exception';
+import { TrimInputPipe } from './common/pipes/trim-input.pipe';
 
 function flattenValidationErrors(errors: ValidationError[]): ValidationError | undefined {
   const [firstError] = errors;
@@ -37,6 +38,7 @@ export function configureApp(app: INestApplication): void {
     credentials: true
   });
   app.useGlobalPipes(
+    new TrimInputPipe(),
     new ValidationPipe({
       whitelist: true,
       transform: true,

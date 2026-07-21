@@ -19,6 +19,6 @@ export class CreateEmployeeDto {
   role?: Role;
 
   @IsString()
-  @MinLength(1)
+  @IsIn(['active', 'inactive'])
   status!: string;
 }

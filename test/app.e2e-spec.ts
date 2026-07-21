@@ -88,6 +88,24 @@ describe('Music Shop initial phase (e2e)', () => {
       });
   });
 
+  it('accepts trimmed admin credentials and returns the same session shape', async () => {
+    const agent = request.agent(app.getHttpServer());
+
+    await agent
+      .post('/api/v1/auth/login')
+      .send({
+        login: '  ADMIN@MUSICSHOP.LOCAL  ',
+        password: 'Secret!1'
+      })
+      .expect(200)
+      .expect((response) => {
+        expect(response.body.session).toEqual({
+          role: 'admin',
+          name: 'Admin'
+        });
+      });
+  });
+
   it('updates settings and uppercases currency', async () => {
     const agent = request.agent(app.getHttpServer());
     await loginAsAdmin(agent);
@@ -95,7 +113,7 @@ describe('Music Shop initial phase (e2e)', () => {
     await agent
       .put('/api/v1/settings')
       .send({
-        currency: 'uzs',
+        currency: ' uzs ',
         lowStockThreshold: 5,
         defaultProductStatus: 'draft',
         defaultMarkupPercent: 32
@@ -105,6 +123,24 @@ describe('Music Shop initial phase (e2e)', () => {
         expect(response.body.settings.currency).toBe('UZS');
         expect(response.body.settings.lowStockThreshold).toBe(5);
         expect(response.body.settings.defaultMarkupPercent).toBe(32);
+      });
+  });
+
+  it('rejects blank category names after trimming input', async () => {
+    const agent = request.agent(app.getHttpServer());
+    await loginAsAdmin(agent);
+
+    await agent
+      .post('/api/v1/categories')
+      .send({
+        name: '   ',
+        status: 'active',
+        description: '  valid description  '
+      })
+      .expect(400)
+      .expect((response) => {
+        expect(response.body.error.code).toBe('validation_error');
+        expect(response.body.error.field).toBe('name');
       });
   });
 
