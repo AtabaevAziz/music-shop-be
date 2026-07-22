@@ -71,13 +71,16 @@ NestJS backend for the Music Shop frontend contract.
 5. Apply the initial migration with `npx prisma migrate dev`.
 6. Seed demo data with `npx prisma db seed`.
 7. Start the app with `npm run start:dev`.
+8. With `AUTO_SEED_MOCK_DATA=true`, the backend also upserts the canonical mock dataset on startup so empty API tables become visible immediately.
 
 Schema source of truth:
 
 - Prisma schema: `prisma/schema.prisma`
 - Prisma migrations: `prisma/migrations/*`
-- Seed data: `prisma/seed.ts`
-- Root `../Script.sql` is a reporting/diagnostic query pack and does not create the schema
+- Seed data loader: `prisma/seed.ts`
+- Mock dataset files: `prisma/data/*`
+- Root `Musicshop.sql` is the canonical SQL bootstrap/reference for the public tables mock dataset; `prisma/seed.ts` reproduces the same rows programmatically
+- `AUTO_SEED_MOCK_DATA=true` makes the backend upsert the canonical mock dataset on startup without touching `Session`
 
 Local PostgreSQL options:
 
@@ -95,6 +98,7 @@ Default local setup:
 - backend: `http://localhost:8080`
 - frontend origin for cookies/CORS: `http://localhost:3000`
 - seeded local product media paths: `/assets/...`
+- auto mock data bootstrap: `AUTO_SEED_MOCK_DATA=true`
 
 Quick local verification:
 
@@ -118,6 +122,13 @@ CLIENT_ORIGIN=http://localhost:3000 \
 ADMIN_LOGIN=admin \
 ADMIN_PASSWORD=Secret!1 \
 npm run smoke:local-auth
+```
+
+Seed commands:
+
+```bash
+npx prisma db seed
+npm run prisma:seed:upsert
 ```
 
 ## Demo accounts

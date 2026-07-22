@@ -365,6 +365,7 @@ describe('Music Shop initial phase (e2e)', () => {
       .get('/api/v1/customers')
       .expect(200)
       .expect((response) => {
+        expect(response.body).toHaveLength(10);
         const amina = response.body.find((item: { id: string }) => item.id === 'customer-001');
         expect(amina.fullName).toBe('Amina Karimova');
         expect(amina.ordersCount).toBe(1);
@@ -381,9 +382,9 @@ describe('Music Shop initial phase (e2e)', () => {
       .get('/api/v1/categories')
       .expect(200)
       .expect((response) => {
-        const strings = response.body.find((item: { id: string }) => item.id === 'category-strings');
+        const pianos = response.body.find((item: { id: string }) => item.id === 'category-pianos');
         const guitars = response.body.find((item: { id: string }) => item.id === 'category-guitars');
-        expect(strings.productCount).toBe(1);
+        expect(pianos.productCount).toBe(1);
         expect(guitars.productCount).toBe(1);
       });
   });
@@ -408,6 +409,28 @@ describe('Music Shop initial phase (e2e)', () => {
       .expect(200)
       .expect((response) => {
         expect(response.body.product.minStockQty).toBe(5);
+      });
+  });
+
+  it('normalizes blank product barcodes to null on update', async () => {
+    const agent = request.agent(app.getHttpServer());
+    await loginAsAdmin(agent);
+
+    await agent
+      .put('/api/v1/products/product-player-strat')
+      .send({
+        barcode: '   '
+      })
+      .expect(200)
+      .expect((response) => {
+        expect(response.body.product.barcode).toBeNull();
+      });
+
+    await agent
+      .get('/api/v1/products/product-player-strat')
+      .expect(200)
+      .expect((response) => {
+        expect(response.body.product.barcode).toBeNull();
       });
   });
 

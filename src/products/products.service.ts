@@ -160,7 +160,7 @@ export class ProductsService {
         id: createId('product'),
         name: payload.name.trim(),
         sku: payload.sku.trim(),
-        barcode: payload.barcode?.trim() ?? null,
+        barcode: this.normalizeNullableText(payload.barcode),
         categoryId: payload.categoryId,
         brand: payload.brand.trim(),
         price: payload.price,
@@ -211,7 +211,10 @@ export class ProductsService {
       data: {
         name: payload.name?.trim(),
         sku: payload.sku?.trim(),
-        barcode: payload.barcode === undefined ? undefined : payload.barcode.trim(),
+        barcode:
+          payload.barcode === undefined
+            ? undefined
+            : this.normalizeNullableText(payload.barcode),
         categoryId: payload.categoryId,
         brand: payload.brand?.trim(),
         price: payload.price,
@@ -383,6 +386,15 @@ export class ProductsService {
     }
 
     return trimmedImage;
+  }
+
+  private normalizeNullableText(value?: string | null): string | null {
+    if (value === undefined || value === null) {
+      return null;
+    }
+
+    const trimmedValue = value.trim();
+    return trimmedValue === '' ? null : trimmedValue;
   }
 
   private normalizeImageList(images: string[]): string[] {

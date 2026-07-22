@@ -282,6 +282,54 @@ INSERT INTO "Employee" (
   crypt('manager@musicshop.local', gen_salt('bf', 10)),
   TIMESTAMP '2026-07-09 10:00:00',
   TIMESTAMP '2026-07-09 10:00:00'
+),
+(
+  'employee-002',
+  'Sales Floor Lead',
+  'sales.lead',
+  'sales.lead@musicshop.local',
+  '+998901112244',
+  'admin',
+  'active',
+  crypt('sales.lead@musicshop.local', gen_salt('bf', 10)),
+  TIMESTAMP '2026-07-10 09:00:00',
+  TIMESTAMP '2026-07-10 09:00:00'
+),
+(
+  'employee-003',
+  'Repair Coordinator',
+  'repair.coordinator',
+  'repair.coordinator@musicshop.local',
+  '+998901112255',
+  'admin',
+  'active',
+  crypt('repair.coordinator@musicshop.local', gen_salt('bf', 10)),
+  TIMESTAMP '2026-07-10 09:30:00',
+  TIMESTAMP '2026-07-10 09:30:00'
+),
+(
+  'employee-004',
+  'Finance Desk',
+  'finance.desk',
+  'finance.desk@musicshop.local',
+  '+998901112266',
+  'admin',
+  'active',
+  crypt('finance.desk@musicshop.local', gen_salt('bf', 10)),
+  TIMESTAMP '2026-07-11 08:45:00',
+  TIMESTAMP '2026-07-11 08:45:00'
+),
+(
+  'employee-005',
+  'Weekend Visual Merchandiser',
+  'visual.merch',
+  'visual.merch@musicshop.local',
+  '+998901112277',
+  'admin',
+  'inactive',
+  crypt('visual.merch@musicshop.local', gen_salt('bf', 10)),
+  TIMESTAMP '2026-07-12 11:00:00',
+  TIMESTAMP '2026-07-12 11:00:00'
 );
 
 INSERT INTO "Customer" (
@@ -312,6 +360,110 @@ INSERT INTO "Customer" (
   crypt('studio@example.com', gen_salt('bf', 10)),
   TIMESTAMP '2026-07-09 10:00:00',
   TIMESTAMP '2026-07-09 10:00:00'
+),
+(
+  'customer-003',
+  'Dilshod Rakhimov',
+  'Dilshod Rakhimov',
+  '+998901234568',
+  'dilshod.rakhimov@example.com',
+  'standard',
+  'active',
+  'First-time guitar shopper',
+  crypt('dilshod.rakhimov@example.com', gen_salt('bf', 10)),
+  TIMESTAMP '2026-07-10 09:20:00',
+  TIMESTAMP '2026-07-10 09:20:00'
+),
+(
+  'customer-004',
+  'Nodira Saidova',
+  'Nodira Saidova',
+  '+998901234569',
+  'nodira.saidova@example.com',
+  'vip',
+  'active',
+  'Owns a rehearsal studio',
+  crypt('nodira.saidova@example.com', gen_salt('bf', 10)),
+  TIMESTAMP '2026-07-11 11:45:00',
+  TIMESTAMP '2026-07-11 11:45:00'
+),
+(
+  'customer-005',
+  'Bekzod Ensemble',
+  'Bekzod Ensemble',
+  '+998901234570',
+  'bekzod.ensemble@example.com',
+  'standard',
+  'active',
+  'Mostly browsing acoustic stock',
+  crypt('bekzod.ensemble@example.com', gen_salt('bf', 10)),
+  TIMESTAMP '2026-07-12 13:10:00',
+  TIMESTAMP '2026-07-12 13:10:00'
+),
+(
+  'customer-006',
+  'Tashkent Music School',
+  'Tashkent Music School',
+  '+998901234571',
+  'school.procurement@example.com',
+  'studio',
+  'active',
+  'Recurring education orders',
+  crypt('school.procurement@example.com', gen_salt('bf', 10)),
+  TIMESTAMP '2026-07-13 08:50:00',
+  TIMESTAMP '2026-07-13 08:50:00'
+),
+(
+  'customer-007',
+  'Kamola Yuldasheva',
+  'Kamola Yuldasheva',
+  '+998901234572',
+  'kamola.yuldasheva@example.com',
+  'standard',
+  'active',
+  'Needs seasonal maintenance',
+  crypt('kamola.yuldasheva@example.com', gen_salt('bf', 10)),
+  TIMESTAMP '2026-07-14 10:25:00',
+  TIMESTAMP '2026-07-14 10:25:00'
+),
+(
+  'customer-008',
+  'Rustam Sessionman',
+  'Rustam Sessionman',
+  '+998901234573',
+  'rustam.sessionman@example.com',
+  'vip',
+  'active',
+  'Buys instruments for live sessions',
+  crypt('rustam.sessionman@example.com', gen_salt('bf', 10)),
+  TIMESTAMP '2026-07-15 16:05:00',
+  TIMESTAMP '2026-07-15 16:05:00'
+),
+(
+  'customer-009',
+  'Samarkand Jazz Hub',
+  'Samarkand Jazz Hub',
+  '+998901234574',
+  'samarkandjazz@example.com',
+  'studio',
+  'active',
+  'Restocking rehearsal room instruments',
+  crypt('samarkandjazz@example.com', gen_salt('bf', 10)),
+  TIMESTAMP '2026-07-16 12:40:00',
+  TIMESTAMP '2026-07-16 12:40:00'
+),
+(
+  'customer-010',
+  'Azizbek Tursunov',
+  'Azizbek Tursunov',
+  '+998901234575',
+  'azizbek.tursunov@example.com',
+  'standard',
+  'active',
+  'Learning piano and comparing options',
+  crypt('azizbek.tursunov@example.com', gen_salt('bf', 10)),
+  TIMESTAMP '2026-07-17 09:35:00',
+  TIMESTAMP '2026-07-17 09:35:00'
 );
 
 INSERT INTO "Category" (
@@ -336,6 +488,126 @@ INSERT INTO "Category" (
   'Electric and acoustic guitars',
   TIMESTAMP '2026-07-09 10:00:00',
   TIMESTAMP '2026-07-09 10:00:00'
+),
+(
+  'category-drums',
+  'Electronic Drums & Pads',
+  'drums',
+  NULL,
+  'active',
+  'Pads, drum modules and compact performance kits',
+  TIMESTAMP '2026-07-10 10:00:00',
+  TIMESTAMP '2026-07-10 10:00:00'
+),
+(
+  'category-microphones',
+  'Studio Microphones',
+  'microphones',
+  NULL,
+  'active',
+  'Broadcast and recording microphones for studio work',
+  TIMESTAMP '2026-07-10 10:15:00',
+  TIMESTAMP '2026-07-10 10:15:00'
+),
+(
+  'category-violins',
+  'Violins',
+  'violins',
+  NULL,
+  'active',
+  'Student and performance violins for lessons and stage',
+  TIMESTAMP '2026-07-10 10:30:00',
+  TIMESTAMP '2026-07-10 10:30:00'
+),
+(
+  'category-saxophones',
+  'Saxophones',
+  'saxophones',
+  NULL,
+  'active',
+  'Alto and tenor saxophones for study and performance',
+  TIMESTAMP '2026-07-10 10:45:00',
+  TIMESTAMP '2026-07-10 10:45:00'
+),
+(
+  'category-keyboards',
+  'Home Keyboards',
+  'keyboards',
+  NULL,
+  'active',
+  'Portable keyboards for practice corners and home studios',
+  TIMESTAMP '2026-07-10 11:00:00',
+  TIMESTAMP '2026-07-10 11:00:00'
+),
+(
+  'category-acoustic-guitars',
+  'Acoustic Guitars',
+  'acoustic-guitars',
+  NULL,
+  'active',
+  'Steel-string acoustics for students and singer-songwriters',
+  TIMESTAMP '2026-07-10 11:15:00',
+  TIMESTAMP '2026-07-10 11:15:00'
+),
+(
+  'category-cellos',
+  'Cellos',
+  'cellos',
+  NULL,
+  'active',
+  'Practice and stage cellos for conservatory and ensemble work',
+  TIMESTAMP '2026-07-10 11:30:00',
+  TIMESTAMP '2026-07-10 11:30:00'
+),
+(
+  'category-dombras',
+  'Dombras',
+  'dombras',
+  NULL,
+  'active',
+  'Traditional Central Asian dombras for folk repertoire and classes',
+  TIMESTAMP '2026-07-10 11:45:00',
+  TIMESTAMP '2026-07-10 11:45:00'
+),
+(
+  'category-flutes',
+  'Flutes',
+  'flutes',
+  NULL,
+  'active',
+  'Student and intermediate concert flutes for study and recital use',
+  TIMESTAMP '2026-07-10 12:00:00',
+  TIMESTAMP '2026-07-10 12:00:00'
+),
+(
+  'category-trumpets',
+  'Trumpets',
+  'trumpets',
+  NULL,
+  'active',
+  'Bb trumpets for school bands, studio charts and live brass sections',
+  TIMESTAMP '2026-07-10 12:15:00',
+  TIMESTAMP '2026-07-10 12:15:00'
+),
+(
+  'category-electric-guitars',
+  'Electric Guitars',
+  'electric-guitars',
+  NULL,
+  'active',
+  'Modern electric guitars for rehearsal rooms, lessons and live rigs',
+  TIMESTAMP '2026-07-10 12:30:00',
+  TIMESTAMP '2026-07-10 12:30:00'
+),
+(
+  'category-drum-kits',
+  'Drum Kits',
+  'drum-kits',
+  NULL,
+  'active',
+  'Full kits for rehearsal rooms, venues and teaching studios',
+  TIMESTAMP '2026-07-10 12:45:00',
+  TIMESTAMP '2026-07-10 12:45:00'
 );
 
 INSERT INTO "Product" (
@@ -373,7 +645,7 @@ INSERT INTO "Product" (
   8700000,
   6900000,
   2,
-  1,
+  3,
   'active',
   'Portable stage piano',
   'Weighted keys and compact body',
@@ -383,21 +655,324 @@ INSERT INTO "Product" (
   'new',
   TIMESTAMP '2026-07-09 10:00:00',
   TIMESTAMP '2026-07-09 10:00:00'
+),
+(
+  'product-roland-spd-sx',
+  'Roland SPD-SX Sampling Pad',
+  'ROL-SPDSX-001',
+  '5901234123401',
+  'category-drums',
+  'Roland',
+  7400000,
+  5900000,
+  1,
+  2,
+  'active',
+  'Performance sampling pad for hybrid drum rigs',
+  'Nine responsive pads, onboard sampling and live-ready trigger routing.',
+  '{"Pads":"9","Memory":"4GB","Outputs":"Stereo main plus sub outs"}'::jsonb,
+  ARRAY['/assets/roland-spd-sx.jpg'],
+  '/assets/roland-spd-sx.jpg',
+  'showroom',
+  TIMESTAMP '2026-07-10 12:00:00',
+  TIMESTAMP '2026-07-10 12:00:00'
+),
+(
+  'product-shure-sm7b',
+  'Shure SM7B',
+  'SHU-SM7B-001',
+  '042406088879',
+  'category-microphones',
+  'Shure',
+  4200000,
+  3100000,
+  6,
+  2,
+  'active',
+  'Broadcast dynamic microphone for studio voice work',
+  'A proven dynamic mic for podcast, radio and treated vocal booths.',
+  '{"Type":"Dynamic","Pattern":"Cardioid","Mount":"Integrated yoke"}'::jsonb,
+  ARRAY['/assets/shure-sm7b.jpg'],
+  '/assets/shure-sm7b.jpg',
+  'new',
+  TIMESTAMP '2026-07-10 12:20:00',
+  TIMESTAMP '2026-07-10 12:20:00'
+),
+(
+  'product-stentor-student-ii',
+  'Stentor Student II Violin',
+  'STE-VLN-002',
+  '9780201379624',
+  'category-violins',
+  'Stentor',
+  2800000,
+  2000000,
+  2,
+  2,
+  'active',
+  'Entry-level violin outfit for lessons and recitals',
+  'Laminate body student violin outfit with bow, case and rosin included.',
+  '{"Size":"4/4","Top":"Spruce laminate","Accessories":"Case, bow, rosin"}'::jsonb,
+  ARRAY['/assets/violin.png'],
+  '/assets/violin.png',
+  'new',
+  TIMESTAMP '2026-07-10 12:40:00',
+  TIMESTAMP '2026-07-10 12:40:00'
+),
+(
+  'product-yamaha-f310',
+  'Yamaha F310',
+  'YAM-F310-001',
+  '4957812496946',
+  'category-acoustic-guitars',
+  'Yamaha',
+  2450000,
+  1780000,
+  5,
+  2,
+  'active',
+  'Reliable acoustic guitar for practice and songwriting',
+  'Full-size dreadnought acoustic with balanced projection and comfortable action.',
+  '{"Body":"Dreadnought","Top":"Spruce","BackSides":"Meranti"}'::jsonb,
+  ARRAY['/assets/acoustic-guitar.png'],
+  '/assets/acoustic-guitar.png',
+  'new',
+  TIMESTAMP '2026-07-10 13:00:00',
+  TIMESTAMP '2026-07-10 13:00:00'
+),
+(
+  'product-casio-cdp-s110',
+  'Casio CDP-S110',
+  'CAS-CDPS110-001',
+  '4971850362629',
+  'category-keyboards',
+  'Casio',
+  5200000,
+  4100000,
+  3,
+  2,
+  'draft',
+  'Slim digital piano for compact teaching spaces',
+  'Minimal-footprint digital piano waiting for merchandising approval before launch.',
+  '{"Keys":"88","Action":"Scaled hammer","Weight":"10.5kg"}'::jsonb,
+  ARRAY['/assets/grand-piano.png'],
+  '/assets/grand-piano.png',
+  'showroom',
+  TIMESTAMP '2026-07-10 13:20:00',
+  TIMESTAMP '2026-07-10 13:20:00'
+),
+(
+  'product-selmer-as500',
+  'Selmer AS500 Alto Saxophone',
+  'SEL-AS500-001',
+  '641064829305',
+  'category-saxophones',
+  'Selmer',
+  6600000,
+  5100000,
+  1,
+  1,
+  'archived',
+  'Archived alto sax listing kept for historical order context',
+  'Legacy alto saxophone SKU retained in admin catalog for prior quoting history.',
+  '{"Finish":"Lacquer","Key":"Eb","Included":"Case and mouthpiece"}'::jsonb,
+  ARRAY['/assets/saxophone.png'],
+  '/assets/saxophone.png',
+  'used',
+  TIMESTAMP '2026-07-10 13:40:00',
+  TIMESTAMP '2026-07-10 13:40:00'
+),
+(
+  'product-yamaha-svc50',
+  'Yamaha SVC50 Silent Cello',
+  'YAM-SVC50-001',
+  '4957812611042',
+  'category-cellos',
+  'Yamaha',
+  12600000,
+  9800000,
+  1,
+  1,
+  'active',
+  'Stage-friendly silent cello for practice and live amplification',
+  'Electric silent cello with onboard pickup for rehearsal rooms, apartments and live stage monitoring.',
+  '{"Strings":"4","Output":"Line out plus headphones","Frame":"Detachable silent body"}'::jsonb,
+  ARRAY['/assets/cello.png'],
+  '/assets/cello.png',
+  'showroom',
+  TIMESTAMP '2026-07-10 14:00:00',
+  TIMESTAMP '2026-07-10 14:00:00'
+),
+(
+  'product-arman-dombra',
+  'Arman Folk Dombra',
+  'ARM-DOM-001',
+  '9981234500012',
+  'category-dombras',
+  'Arman',
+  1900000,
+  1350000,
+  4,
+  1,
+  'active',
+  'Traditional two-string dombra for folk classes and ensemble repertoire',
+  'Lightweight folk dombra with bright attack for ensemble work, lessons and cultural programs.',
+  '{"Strings":"2","Top":"Spruce","Finish":"Natural satin"}'::jsonb,
+  ARRAY['/assets/dombra.png'],
+  '/assets/dombra.png',
+  'new',
+  TIMESTAMP '2026-07-10 14:15:00',
+  TIMESTAMP '2026-07-10 14:15:00'
+),
+(
+  'product-yamaha-yfl-212',
+  'Yamaha YFL-212',
+  'YAM-YFL212-001',
+  '4957812596400',
+  'category-flutes',
+  'Yamaha',
+  4800000,
+  3600000,
+  4,
+  2,
+  'active',
+  'Student concert flute for lessons and school orchestra work',
+  'Reliable closed-hole student flute with balanced response for first years of study and exams.',
+  '{"Key":"C","Headjoint":"Silver-plated","System":"Closed-hole plateau"}'::jsonb,
+  ARRAY['/assets/flute.png'],
+  '/assets/flute.png',
+  'new',
+  TIMESTAMP '2026-07-10 14:30:00',
+  TIMESTAMP '2026-07-10 14:30:00'
+),
+(
+  'product-yamaha-ytr-2330',
+  'Yamaha YTR-2330',
+  'YAM-YTR2330-001',
+  '4957812596653',
+  'category-trumpets',
+  'Yamaha',
+  5900000,
+  4500000,
+  2,
+  1,
+  'active',
+  'Bb trumpet for school bands, studio charts and brass sections',
+  'Balanced student trumpet with responsive intonation for ensemble rehearsals and concert use.',
+  '{"Key":"Bb","Bore":"ML","Bell":"Yellow brass"}'::jsonb,
+  ARRAY['/assets/trumpet.png'],
+  '/assets/trumpet.png',
+  'new',
+  TIMESTAMP '2026-07-10 14:45:00',
+  TIMESTAMP '2026-07-10 14:45:00'
+),
+(
+  'product-ibanez-rg421',
+  'Ibanez RG421',
+  'IBA-RG421-001',
+  '4515276967331',
+  'category-electric-guitars',
+  'Ibanez',
+  7600000,
+  6000000,
+  2,
+  1,
+  'active',
+  'Modern electric guitar for fast practice sets and live rigs',
+  'Fixed-bridge RG platform with slim neck profile for technique work, rehearsals and club stages.',
+  '{"Pickups":"HH","Bridge":"Fixed","Neck":"Wizard III maple"}'::jsonb,
+  ARRAY['/assets/electric-guitar.png'],
+  '/assets/electric-guitar.png',
+  'new',
+  TIMESTAMP '2026-07-10 15:00:00',
+  TIMESTAMP '2026-07-10 15:00:00'
+),
+(
+  'product-yamaha-stage-custom',
+  'Yamaha Stage Custom Birch Kit',
+  'YAM-STAGECUSTOM-001',
+  '4957812481126',
+  'category-drum-kits',
+  'Yamaha',
+  13400000,
+  10400000,
+  1,
+  1,
+  'active',
+  'Full birch drum kit for rehearsal rooms and venue backline',
+  'Five-piece birch kit tuned for compact stages, teaching rooms and all-round session work.',
+  '{"Shells":"Birch","Pieces":"5","Finish":"Raven black"}'::jsonb,
+  ARRAY['/assets/drum-kit.png'],
+  '/assets/drum-kit.png',
+  'showroom',
+  TIMESTAMP '2026-07-10 15:15:00',
+  TIMESTAMP '2026-07-10 15:15:00'
 );
 
 INSERT INTO "InventoryMovement" (
   "id", "productId", "delta", "reason", "createdAt"
-) VALUES (
+) VALUES
+(
   'movement-ord-1001-product-player-strat',
   'product-player-strat',
   -1,
   'Reserved for client order ORD-1001',
   TIMESTAMP '2026-07-09 10:00:00'
+),
+(
+  'movement-ord-1002-product-yamaha-p125',
+  'product-yamaha-p125',
+  -1,
+  'Reserved for client order ORD-1002',
+  TIMESTAMP '2026-07-10 11:30:00'
+),
+(
+  'movement-ord-1003-product-player-strat',
+  'product-player-strat',
+  -1,
+  'Reserved for client order ORD-1003',
+  TIMESTAMP '2026-07-12 15:10:00'
+),
+(
+  'movement-ord-1004-product-yamaha-p125',
+  'product-yamaha-p125',
+  -1,
+  'Reserved for client order ORD-1004',
+  TIMESTAMP '2026-07-13 09:15:00'
+),
+(
+  'movement-ord-1005-product-player-strat',
+  'product-player-strat',
+  -1,
+  'Reserved for client order ORD-1005',
+  TIMESTAMP '2026-07-16 14:20:00'
+),
+(
+  'movement-ord-1006-product-yamaha-p125',
+  'product-yamaha-p125',
+  -1,
+  'Reserved for client order ORD-1006',
+  TIMESTAMP '2026-07-18 12:00:00'
+),
+(
+  'movement-restock-product-shure-sm7b',
+  'product-shure-sm7b',
+  3,
+  'Weekly restock from distributor intake',
+  TIMESTAMP '2026-07-21 09:00:00'
+),
+(
+  'movement-audit-product-roland-spd-sx',
+  'product-roland-spd-sx',
+  -1,
+  'Showroom audit adjustment after display handoff',
+  TIMESTAMP '2026-07-21 11:15:00'
 );
 
 INSERT INTO "Order" (
   "id", "customerId", "paymentStatus", "status", "notes", "createdAt", "updatedAt"
-) VALUES (
+) VALUES
+(
   'ORD-1001',
   'customer-001',
   'pending',
@@ -405,22 +980,104 @@ INSERT INTO "Order" (
   'Please confirm pickup time.',
   TIMESTAMP '2026-07-09 10:00:00',
   TIMESTAMP '2026-07-09 10:05:00'
+),
+(
+  'ORD-1002',
+  'customer-002',
+  'partial',
+  'packed',
+  'Bulk stand order for rehearsal room.',
+  TIMESTAMP '2026-07-10 11:30:00',
+  TIMESTAMP '2026-07-10 13:00:00'
+),
+(
+  'ORD-1003',
+  'customer-004',
+  'paid',
+  'completed',
+  'VIP pickup completed from showroom floor.',
+  TIMESTAMP '2026-07-12 15:10:00',
+  TIMESTAMP '2026-07-12 17:45:00'
+),
+(
+  'ORD-1004',
+  'customer-006',
+  'pending',
+  'new',
+  'School procurement pending director approval.',
+  TIMESTAMP '2026-07-13 09:15:00',
+  TIMESTAMP '2026-07-13 09:15:00'
+),
+(
+  'ORD-1005',
+  'customer-008',
+  'paid',
+  'ready_for_pickup',
+  'Hold until evening soundcheck pickup.',
+  TIMESTAMP '2026-07-16 14:20:00',
+  TIMESTAMP '2026-07-16 16:05:00'
+),
+(
+  'ORD-1006',
+  'customer-009',
+  'pending',
+  'confirmed',
+  'Requested invoice copy by email.',
+  TIMESTAMP '2026-07-18 12:00:00',
+  TIMESTAMP '2026-07-18 12:25:00'
 );
 
 INSERT INTO "OrderItem" (
   "id", "orderId", "productId", "qty", "unitPrice"
-) VALUES (
+) VALUES
+(
   'order-item-ord-1001-product-player-strat',
   'ORD-1001',
   'product-player-strat',
   1,
   9800000
+),
+(
+  'order-item-ord-1002-product-yamaha-p125',
+  'ORD-1002',
+  'product-yamaha-p125',
+  1,
+  8700000
+),
+(
+  'order-item-ord-1003-product-player-strat',
+  'ORD-1003',
+  'product-player-strat',
+  1,
+  9800000
+),
+(
+  'order-item-ord-1004-product-yamaha-p125',
+  'ORD-1004',
+  'product-yamaha-p125',
+  1,
+  8700000
+),
+(
+  'order-item-ord-1005-product-player-strat',
+  'ORD-1005',
+  'product-player-strat',
+  1,
+  9800000
+),
+(
+  'order-item-ord-1006-product-yamaha-p125',
+  'ORD-1006',
+  'product-yamaha-p125',
+  1,
+  8700000
 );
 
 INSERT INTO "RepairRequest" (
   "id", "customerId", "instrumentName", "brand", "issue", "status", "notes", "estimatedCost",
   "assignedMasterName", "receivedAt", "createdAt", "updatedAt"
-) VALUES (
+) VALUES
+(
   'REP-2001',
   'customer-001',
   'Yamaha P-125',
@@ -433,16 +1090,157 @@ INSERT INTO "RepairRequest" (
   TIMESTAMP '2026-07-08 00:00:00',
   TIMESTAMP '2026-07-09 10:00:00',
   TIMESTAMP '2026-07-09 10:00:00'
+),
+(
+  'REP-2002',
+  'customer-004',
+  'Fender Player Stratocaster',
+  'Fender',
+  'Output jack cuts out intermittently.',
+  'diagnostics',
+  'Customer requested quick estimate.',
+  180000,
+  'Sardor K.',
+  TIMESTAMP '2026-07-12 09:00:00',
+  TIMESTAMP '2026-07-12 10:30:00',
+  TIMESTAMP '2026-07-12 12:00:00'
+),
+(
+  'REP-2003',
+  'customer-007',
+  'Kawai ES110',
+  'Kawai',
+  'Sustain pedal response is inconsistent.',
+  'ready',
+  'Waiting for customer pickup confirmation.',
+  220000,
+  'Akmal R.',
+  TIMESTAMP '2026-07-14 11:00:00',
+  TIMESTAMP '2026-07-14 11:30:00',
+  TIMESTAMP '2026-07-15 15:00:00'
+),
+(
+  'REP-2004',
+  'customer-008',
+  'Gibson Les Paul Studio',
+  'Gibson',
+  'Needs fret polishing and setup.',
+  'completed',
+  'Completed before weekend session.',
+  400000,
+  'Bekzod U.',
+  TIMESTAMP '2026-07-16 10:00:00',
+  TIMESTAMP '2026-07-16 10:20:00',
+  TIMESTAMP '2026-07-17 18:00:00'
+),
+(
+  'REP-2005',
+  'customer-010',
+  'Yamaha P-125',
+  'Yamaha',
+  'Middle register has a rattling key.',
+  'in_progress',
+  'Parts ordered for keybed inspection.',
+  310000,
+  'Dilshod M.',
+  TIMESTAMP '2026-07-17 08:30:00',
+  TIMESTAMP '2026-07-17 09:00:00',
+  TIMESTAMP '2026-07-18 14:45:00'
 );
 
 INSERT INTO "Activity" (
   "id", "title", "messageKey", "messageParams", "timestamp"
-) VALUES (
+) VALUES
+(
   'activity-order-ord-1001',
   'activity.orderMoved',
   'activity.orderMoved',
   '{"orderId":"ORD-1001","status":"confirmed"}'::jsonb,
   TIMESTAMP '2026-07-09 10:00:00'
+),
+(
+  'activity-repair-created-rep-2001',
+  'activity.repairCreated',
+  'activity.repairCreated',
+  '{"repairId":"REP-2001","customerId":"customer-001"}'::jsonb,
+  TIMESTAMP '2026-07-09 10:00:00'
+),
+(
+  'activity-order-created-ord-1002',
+  'activity.orderCreated',
+  'activity.orderCreated',
+  '{"orderId":"ORD-1002","customerId":"customer-002"}'::jsonb,
+  TIMESTAMP '2026-07-10 11:30:00'
+),
+(
+  'activity-repair-created-rep-2002',
+  'activity.repairCreated',
+  'activity.repairCreated',
+  '{"repairId":"REP-2002","customerId":"customer-004"}'::jsonb,
+  TIMESTAMP '2026-07-12 10:30:00'
+),
+(
+  'activity-order-created-ord-1003',
+  'activity.orderCreated',
+  'activity.orderCreated',
+  '{"orderId":"ORD-1003","customerId":"customer-004"}'::jsonb,
+  TIMESTAMP '2026-07-12 15:10:00'
+),
+(
+  'activity-order-created-ord-1004',
+  'activity.orderCreated',
+  'activity.orderCreated',
+  '{"orderId":"ORD-1004","customerId":"customer-006"}'::jsonb,
+  TIMESTAMP '2026-07-13 09:15:00'
+),
+(
+  'activity-repair-created-rep-2003',
+  'activity.repairCreated',
+  'activity.repairCreated',
+  '{"repairId":"REP-2003","customerId":"customer-007"}'::jsonb,
+  TIMESTAMP '2026-07-14 11:30:00'
+),
+(
+  'activity-repair-created-rep-2004',
+  'activity.repairCreated',
+  'activity.repairCreated',
+  '{"repairId":"REP-2004","customerId":"customer-008"}'::jsonb,
+  TIMESTAMP '2026-07-16 10:20:00'
+),
+(
+  'activity-order-created-ord-1005',
+  'activity.orderCreated',
+  'activity.orderCreated',
+  '{"orderId":"ORD-1005","customerId":"customer-008"}'::jsonb,
+  TIMESTAMP '2026-07-16 14:20:00'
+),
+(
+  'activity-repair-created-rep-2005',
+  'activity.repairCreated',
+  'activity.repairCreated',
+  '{"repairId":"REP-2005","customerId":"customer-010"}'::jsonb,
+  TIMESTAMP '2026-07-17 09:00:00'
+),
+(
+  'activity-order-created-ord-1006',
+  'activity.orderCreated',
+  'activity.orderCreated',
+  '{"orderId":"ORD-1006","customerId":"customer-009"}'::jsonb,
+  TIMESTAMP '2026-07-18 12:00:00'
+),
+(
+  'activity-inventory-restock-product-shure-sm7b',
+  'activity.inventoryAdjusted',
+  'activity.inventoryAdjusted',
+  '{"productId":"product-shure-sm7b","delta":3}'::jsonb,
+  TIMESTAMP '2026-07-21 09:00:00'
+),
+(
+  'activity-inventory-audit-product-roland-spd-sx',
+  'activity.inventoryAdjusted',
+  'activity.inventoryAdjusted',
+  '{"productId":"product-roland-spd-sx","delta":-1}'::jsonb,
+  TIMESTAMP '2026-07-21 11:15:00'
 );
 
 -- 1. Product overview with category hierarchy and margin indicators
