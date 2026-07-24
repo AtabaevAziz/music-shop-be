@@ -1012,6 +1012,34 @@ INSERT INTO "InventoryMovement" (
   TIMESTAMP '2026-07-18 12:00:00'
 ),
 (
+  'movement-ord-1007-product-casio-ct-s1',
+  'product-casio-ct-s1',
+  -1,
+  'Reserved for client order ORD-1007',
+  TIMESTAMP '2026-07-21 10:40:00'
+),
+(
+  'movement-ord-1007-product-yamaha-yas-280',
+  'product-yamaha-yas-280',
+  -1,
+  'Reserved for client order ORD-1007',
+  TIMESTAMP '2026-07-21 10:40:00'
+),
+(
+  'movement-refund-ord-1007-product-casio-ct-s1',
+  'product-casio-ct-s1',
+  1,
+  'Restocked after refund for ORD-1007',
+  TIMESTAMP '2026-07-21 12:10:00'
+),
+(
+  'movement-refund-ord-1007-product-yamaha-yas-280',
+  'product-yamaha-yas-280',
+  1,
+  'Restocked after refund for ORD-1007',
+  TIMESTAMP '2026-07-21 12:10:00'
+),
+(
   'movement-restock-product-shure-sm7b',
   'product-shure-sm7b',
   3,
@@ -1082,6 +1110,15 @@ INSERT INTO "Order" (
   'Requested invoice copy by email.',
   TIMESTAMP '2026-07-18 12:00:00',
   TIMESTAMP '2026-07-18 12:25:00'
+),
+(
+  'ORD-1007',
+  'customer-003',
+  'refunded',
+  'cancelled',
+  'Customer cancelled after refund was issued for a duplicated checkout attempt.',
+  TIMESTAMP '2026-07-21 10:40:00',
+  TIMESTAMP '2026-07-21 12:10:00'
 );
 
 INSERT INTO "OrderItem" (
@@ -1128,6 +1165,20 @@ INSERT INTO "OrderItem" (
   'product-yamaha-p125',
   1,
   8700000
+),
+(
+  'order-item-ord-1007-product-casio-ct-s1',
+  'ORD-1007',
+  'product-casio-ct-s1',
+  1,
+  3600000
+),
+(
+  'order-item-ord-1007-product-yamaha-yas-280',
+  'ORD-1007',
+  'product-yamaha-yas-280',
+  1,
+  8900000
 );
 
 INSERT INTO "RepairRequest" (
@@ -1203,6 +1254,20 @@ INSERT INTO "RepairRequest" (
   TIMESTAMP '2026-07-17 08:30:00',
   TIMESTAMP '2026-07-17 09:00:00',
   TIMESTAMP '2026-07-18 14:45:00'
+),
+(
+  'REP-2006',
+  'customer-005',
+  'Arman Folk Dombra',
+  'Arman',
+  'Bridge buzz appears during ensemble rehearsals.',
+  'cancelled',
+  'Customer cancelled the repair after choosing to replace the instrument.',
+  NULL,
+  NULL,
+  TIMESTAMP '2026-07-22 09:15:00',
+  TIMESTAMP '2026-07-22 10:00:00',
+  TIMESTAMP '2026-07-22 15:40:00'
 );
 
 INSERT INTO "Activity" (
@@ -1286,6 +1351,20 @@ INSERT INTO "Activity" (
   TIMESTAMP '2026-07-18 12:00:00'
 ),
 (
+  'activity-order-created-ord-1007',
+  'activity.orderCreated',
+  'activity.orderCreated',
+  '{"orderId":"ORD-1007","customerId":"customer-003"}'::jsonb,
+  TIMESTAMP '2026-07-21 10:40:00'
+),
+(
+  'activity-order-moved-ord-1007-cancelled',
+  'activity.orderMoved',
+  'activity.orderMoved',
+  '{"orderId":"ORD-1007","status":"cancelled"}'::jsonb,
+  TIMESTAMP '2026-07-21 12:10:00'
+),
+(
   'activity-inventory-restock-product-shure-sm7b',
   'activity.inventoryAdjusted',
   'activity.inventoryAdjusted',
@@ -1298,6 +1377,13 @@ INSERT INTO "Activity" (
   'activity.inventoryAdjusted',
   '{"productId":"product-roland-spd-sx","delta":-1}'::jsonb,
   TIMESTAMP '2026-07-21 11:15:00'
+),
+(
+  'activity-repair-created-rep-2006',
+  'activity.repairCreated',
+  'activity.repairCreated',
+  '{"repairId":"REP-2006","customerId":"customer-005"}'::jsonb,
+  TIMESTAMP '2026-07-22 10:00:00'
 );
 
 -- 1. Product overview with category hierarchy and margin indicators

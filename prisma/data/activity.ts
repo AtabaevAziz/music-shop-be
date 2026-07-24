@@ -110,6 +110,26 @@ export const activitySeeds = [
     timestamp: new Date('2026-07-18T12:00:00.000Z')
   },
   {
+    id: 'activity-order-created-ord-1007',
+    title: 'activity.orderCreated',
+    messageKey: 'activity.orderCreated',
+    messageParams: {
+      orderId: 'ORD-1007',
+      customerId: 'customer-003'
+    },
+    timestamp: new Date('2026-07-21T10:40:00.000Z')
+  },
+  {
+    id: 'activity-order-moved-ord-1007-cancelled',
+    title: 'activity.orderMoved',
+    messageKey: 'activity.orderMoved',
+    messageParams: {
+      orderId: 'ORD-1007',
+      status: 'cancelled'
+    },
+    timestamp: new Date('2026-07-21T12:10:00.000Z')
+  },
+  {
     id: 'activity-inventory-restock-product-shure-sm7b',
     title: 'activity.inventoryAdjusted',
     messageKey: 'activity.inventoryAdjusted',
@@ -128,5 +148,15 @@ export const activitySeeds = [
       delta: -1
     },
     timestamp: new Date('2026-07-21T11:15:00.000Z')
+  },
+  {
+    id: 'activity-repair-created-rep-2006',
+    title: 'activity.repairCreated',
+    messageKey: 'activity.repairCreated',
+    messageParams: {
+      repairId: 'REP-2006',
+      customerId: 'customer-005'
+    },
+    timestamp: new Date('2026-07-22T10:00:00.000Z')
   }
 ] as const;

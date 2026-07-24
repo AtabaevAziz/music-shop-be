@@ -70,5 +70,19 @@ export const repairSeeds = [
     receivedAt: new Date('2026-07-17T08:30:00.000Z'),
     createdAt: new Date('2026-07-17T09:00:00.000Z'),
     updatedAt: new Date('2026-07-18T14:45:00.000Z')
+  },
+  {
+    id: 'REP-2006',
+    customerId: 'customer-005',
+    instrumentName: 'Arman Folk Dombra',
+    brand: 'Arman',
+    issue: 'Bridge buzz appears during ensemble rehearsals.',
+    status: RepairStatus.cancelled,
+    notes: 'Customer cancelled the repair after choosing to replace the instrument.',
+    estimatedCost: undefined,
+    assignedMasterName: undefined,
+    receivedAt: new Date('2026-07-22T09:15:00.000Z'),
+    createdAt: new Date('2026-07-22T10:00:00.000Z'),
+    updatedAt: new Date('2026-07-22T15:40:00.000Z')
   }
 ] as const;

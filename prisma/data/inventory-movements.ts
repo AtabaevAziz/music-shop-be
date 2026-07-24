@@ -42,6 +42,34 @@ export const inventoryMovementSeeds = [
     createdAt: new Date('2026-07-18T12:00:00.000Z')
   },
   {
+    id: 'movement-ord-1007-product-casio-ct-s1',
+    productId: 'product-casio-ct-s1',
+    delta: -1,
+    reason: 'Reserved for client order ORD-1007',
+    createdAt: new Date('2026-07-21T10:40:00.000Z')
+  },
+  {
+    id: 'movement-ord-1007-product-yamaha-yas-280',
+    productId: 'product-yamaha-yas-280',
+    delta: -1,
+    reason: 'Reserved for client order ORD-1007',
+    createdAt: new Date('2026-07-21T10:40:00.000Z')
+  },
+  {
+    id: 'movement-refund-ord-1007-product-casio-ct-s1',
+    productId: 'product-casio-ct-s1',
+    delta: 1,
+    reason: 'Restocked after refund for ORD-1007',
+    createdAt: new Date('2026-07-21T12:10:00.000Z')
+  },
+  {
+    id: 'movement-refund-ord-1007-product-yamaha-yas-280',
+    productId: 'product-yamaha-yas-280',
+    delta: 1,
+    reason: 'Restocked after refund for ORD-1007',
+    createdAt: new Date('2026-07-21T12:10:00.000Z')
+  },
+  {
     id: 'movement-restock-product-shure-sm7b',
     productId: 'product-shure-sm7b',
     delta: 3,

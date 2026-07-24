@@ -54,6 +54,15 @@ export const orderSeeds = [
     notes: 'Requested invoice copy by email.',
     createdAt: new Date('2026-07-18T12:00:00.000Z'),
     updatedAt: new Date('2026-07-18T12:25:00.000Z')
+  },
+  {
+    id: 'ORD-1007',
+    customerId: 'customer-003',
+    paymentStatus: PaymentStatus.refunded,
+    status: OrderStatus.cancelled,
+    notes: 'Customer cancelled after refund was issued for a duplicated checkout attempt.',
+    createdAt: new Date('2026-07-21T10:40:00.000Z'),
+    updatedAt: new Date('2026-07-21T12:10:00.000Z')
   }
 ] as const;
 
@@ -99,5 +108,19 @@ export const orderItemSeeds = [
     productId: 'product-yamaha-p125',
     qty: 1,
     unitPrice: 8_700_000
+  },
+  {
+    id: 'order-item-ord-1007-product-casio-ct-s1',
+    orderId: 'ORD-1007',
+    productId: 'product-casio-ct-s1',
+    qty: 1,
+    unitPrice: 3_600_000
+  },
+  {
+    id: 'order-item-ord-1007-product-yamaha-yas-280',
+    orderId: 'ORD-1007',
+    productId: 'product-yamaha-yas-280',
+    qty: 1,
+    unitPrice: 8_900_000
   }
 ] as const;
