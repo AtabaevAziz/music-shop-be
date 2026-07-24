@@ -212,6 +212,7 @@ function buildCategoryPayload(category: (typeof categorySeeds)[number]) {
     name: normalizeSeedRequiredString(category.name),
     slug: category.slug,
     parentId: category.parentId,
+    image: normalizeSeedRequiredString(category.image),
     status: normalizeSeedRequiredString(category.status),
     description: normalizeSeedRequiredString(category.description),
     createdAt: category.createdAt,

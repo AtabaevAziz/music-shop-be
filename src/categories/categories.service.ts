@@ -2,7 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { Category, Prisma } from '@prisma/client';
 import { ApiException } from '../common/exceptions/api.exception';
 import { createId } from '../common/utils/id.util';
+import { normalizeMediaPath } from '../common/utils/media.util';
 import { slugify } from '../common/utils/slug.util';
+import { isAbsolutePathOrUrl } from '../common/utils/url.util';
 import { PrismaService } from '../database/prisma.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
@@ -12,6 +14,7 @@ type CategoryWire = {
   name: string;
   slug: string;
   parentId: string | null;
+  image: string;
   status: string;
   description: string;
   productCount: number;
@@ -50,12 +53,15 @@ export class CategoriesService {
     await this.assertValidParent(payload.parentId ?? null);
 
     const slug = await this.generateUniqueSlug(payload.name);
+    const image = this.normalizeImagePath(payload.image);
+    this.assertImageValue(image);
     const category = await this.prisma.category.create({
       data: {
         id: createId('category', slug),
         name: payload.name.trim(),
         slug,
         parentId: payload.parentId ?? null,
+        image,
         status: payload.status.trim(),
         description: payload.description.trim()
       }
@@ -79,6 +85,11 @@ export class CategoriesService {
       payload.name && payload.name.trim() !== existing.name
         ? await this.generateUniqueSlug(payload.name, existing.id)
         : existing.slug;
+    const image =
+      payload.image === undefined
+        ? this.normalizeImagePath(existing.image)
+        : this.normalizeImagePath(payload.image);
+    this.assertImageValue(image);
 
     const category = await this.prisma.category.update({
       where: { id },
@@ -86,6 +97,7 @@ export class CategoriesService {
         name: payload.name?.trim(),
         slug,
         parentId: nextParentId ?? null,
+        image,
         status: payload.status?.trim(),
         description: payload.description?.trim()
       }
@@ -180,12 +192,23 @@ export class CategoriesService {
     }
   }
 
+  private assertImageValue(image: string): void {
+    if (!isAbsolutePathOrUrl(image)) {
+      throw ApiException.validation('Category image must be an absolute path or URL.', 'image');
+    }
+  }
+
+  private normalizeImagePath(image: string): string {
+    return normalizeMediaPath(image);
+  }
+
   private toWire(category: CategoryWithCount | Category): CategoryWire {
     return {
       id: category.id,
       name: category.name,
       slug: category.slug,
       parentId: category.parentId,
+      image: this.normalizeImagePath(category.image),
       status: category.status,
       description: category.description,
       productCount: '_count' in category ? category._count.products : 0

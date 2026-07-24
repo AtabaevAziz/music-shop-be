@@ -18,6 +18,11 @@ export class UpdateCategoryDto {
 
   @IsOptional()
   @IsString()
+  @MinLength(1)
+  image?: string;
+
+  @IsOptional()
+  @IsString()
   @MinLength(4)
   description?: string;
 }

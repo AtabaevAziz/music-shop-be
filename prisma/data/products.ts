@@ -150,6 +150,31 @@ export const productSeeds = [
     updatedAt: new Date('2026-07-10T13:00:00.000Z')
   },
   {
+    id: 'product-casio-ct-s1',
+    name: 'Casio CT-S1',
+    sku: 'CAS-CTS1-001',
+    barcode: '4971850315120',
+    categoryId: 'category-keyboards',
+    brand: 'Casio',
+    price: 3_600_000,
+    costPrice: 2_700_000,
+    stockQty: 7,
+    minStockQty: 2,
+    status: ProductStatus.active,
+    shortDescription: 'Portable home keyboard for practice corners and casual arranging',
+    description: 'Compact 61-key keyboard with built-in sounds for home study, songwriting demos and family practice spaces.',
+    specs: {
+      Keys: '61',
+      Speakers: 'Built-in stereo',
+      Weight: '4.5kg'
+    },
+    images: ['/assets/grand-piano.png'],
+    primaryImage: '/assets/grand-piano.png',
+    condition: Condition.new,
+    createdAt: new Date('2026-07-10T13:10:00.000Z'),
+    updatedAt: new Date('2026-07-10T13:10:00.000Z')
+  },
+  {
     id: 'product-casio-cdp-s110',
     name: 'Casio CDP-S110',
     sku: 'CAS-CDPS110-001',
@@ -173,6 +198,31 @@ export const productSeeds = [
     condition: Condition.showroom,
     createdAt: new Date('2026-07-10T13:20:00.000Z'),
     updatedAt: new Date('2026-07-10T13:20:00.000Z')
+  },
+  {
+    id: 'product-yamaha-yas-280',
+    name: 'Yamaha YAS-280',
+    sku: 'YAM-YAS280-001',
+    barcode: '4957812609131',
+    categoryId: 'category-saxophones',
+    brand: 'Yamaha',
+    price: 8_900_000,
+    costPrice: 6_800_000,
+    stockQty: 2,
+    minStockQty: 1,
+    status: ProductStatus.active,
+    shortDescription: 'Student alto saxophone for lessons, ensemble work and recital prep',
+    description: 'Responsive Eb alto saxophone with comfortable key layout for school programs, private lessons and first studio takes.',
+    specs: {
+      Key: 'Eb',
+      Finish: 'Gold lacquer',
+      Included: 'Case and mouthpiece'
+    },
+    images: ['/assets/saxophone.png'],
+    primaryImage: '/assets/saxophone.png',
+    condition: Condition.new,
+    createdAt: new Date('2026-07-10T13:30:00.000Z'),
+    updatedAt: new Date('2026-07-10T13:30:00.000Z')
   },
   {
     id: 'product-selmer-as500',

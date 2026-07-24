@@ -15,6 +15,10 @@ export class CreateCategoryDto {
   status!: string;
 
   @IsString()
+  @MinLength(1)
+  image!: string;
+
+  @IsString()
   @MinLength(4)
   description!: string;
 }

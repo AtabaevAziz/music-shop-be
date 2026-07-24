@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Condition, Prisma, Product } from '@prisma/client';
 import { ApiException } from '../common/exceptions/api.exception';
 import { createId } from '../common/utils/id.util';
+import { normalizeMediaPath } from '../common/utils/media.util';
 import { isAbsolutePathOrUrl } from '../common/utils/url.util';
 import { PrismaService } from '../database/prisma.service';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -53,6 +54,7 @@ type PublicProductWire = {
     id: string;
     name: string;
     slug: string;
+    image: string;
   };
   brand: string;
 };
@@ -361,31 +363,7 @@ export class ProductsService {
   }
 
   private normalizeImagePath(image: string): string {
-    const trimmedImage = image.trim();
-
-    if (/^https?:\/\//.test(trimmedImage)) {
-      return trimmedImage;
-    }
-
-    const normalizedPath = trimmedImage.replace(/^\/+/, '');
-
-    if (normalizedPath.startsWith('public/products/')) {
-      return `/assets/${normalizedPath.slice('public/products/'.length)}`;
-    }
-
-    if (normalizedPath.startsWith('products/')) {
-      return `/assets/${normalizedPath.slice('products/'.length)}`;
-    }
-
-    if (normalizedPath.startsWith('public/assets/')) {
-      return `/${normalizedPath.slice('public/'.length)}`;
-    }
-
-    if (normalizedPath.startsWith('assets/')) {
-      return `/${normalizedPath}`;
-    }
-
-    return trimmedImage;
+    return normalizeMediaPath(image);
   }
 
   private normalizeNullableText(value?: string | null): string | null {
@@ -470,7 +448,8 @@ export class ProductsService {
       category: {
         id: product.category.id,
         name: product.category.name,
-        slug: product.category.slug
+        slug: product.category.slug,
+        image: this.normalizeImagePath(product.category.image)
       },
       brand: product.brand
     };
