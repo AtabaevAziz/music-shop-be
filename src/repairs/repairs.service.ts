@@ -77,10 +77,9 @@ export class RepairsService {
   ): Promise<RepairWire> {
     await this.assertCustomerExists(customerId);
 
-    const repairCount = await this.prisma.repairRequest.count();
     const repair = await this.prisma.repairRequest.create({
       data: {
-        id: `REP-${2001 + repairCount}`,
+        id: createId('REP'),
         customerId,
         instrumentName: payload.instrumentName.trim(),
         brand: payload.brand.trim(),

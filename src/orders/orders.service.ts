@@ -165,8 +165,7 @@ export class OrdersService {
         }
       }
 
-      const orderCount = await tx.order.count();
-      const orderId = `ORD-${1001 + orderCount}`;
+      const orderId = createId('ORD');
       const createdAt = new Date();
 
       const order = await tx.order.create({
