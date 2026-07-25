@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { RepairRequest, RepairStatus as PrismaRepairStatus } from '@prisma/client';
 import { ApiException } from '../common/exceptions/api.exception';
 import { createId } from '../common/utils/id.util';
+import { getNextSequentialPrefixedId, isUniqueConstraintError } from '../common/utils/sequential-id.util';
 import { PrismaService } from '../database/prisma.service';
 import { CreateRepairDto } from './dto/create-repair.dto';
 import { UpdateRepairDto } from './dto/update-repair.dto';
@@ -76,21 +77,47 @@ export class RepairsService {
     payload: RepairCreatePayload
   ): Promise<RepairWire> {
     await this.assertCustomerExists(customerId);
+    let repair: RepairRequest | null = null;
 
-    const repair = await this.prisma.repairRequest.create({
-      data: {
-        id: createId('REP'),
-        customerId,
-        instrumentName: payload.instrumentName.trim(),
-        brand: payload.brand.trim(),
-        issue: payload.issue.trim(),
-        status: PrismaRepairStatus.new,
-        notes: payload.notes.trim(),
-        estimatedCost: payload.estimatedCost,
-        assignedMasterName: payload.assignedMasterName?.trim(),
-        receivedAt: this.parseReceivedAt(payload.receivedAt)
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const existingRepairIds = await this.prisma.repairRequest.findMany({
+        where: { id: { startsWith: 'REP-' } },
+        select: { id: true }
+      });
+      const repairId = getNextSequentialPrefixedId(
+        existingRepairIds.map((item) => item.id),
+        'REP',
+        2001
+      );
+
+      try {
+        repair = await this.prisma.repairRequest.create({
+          data: {
+            id: repairId,
+            customerId,
+            instrumentName: payload.instrumentName.trim(),
+            brand: payload.brand.trim(),
+            issue: payload.issue.trim(),
+            status: PrismaRepairStatus.new,
+            notes: payload.notes.trim(),
+            estimatedCost: payload.estimatedCost,
+            assignedMasterName: payload.assignedMasterName?.trim(),
+            receivedAt: this.parseReceivedAt(payload.receivedAt)
+          }
+        });
+        break;
+      } catch (error: unknown) {
+        if (isUniqueConstraintError(error)) {
+          continue;
+        }
+
+        throw error;
       }
-    });
+    }
+
+    if (!repair) {
+      throw ApiException.conflict('Could not allocate a new repair number. Please retry.');
+    }
 
     await this.prisma.activity.create({
       data: {

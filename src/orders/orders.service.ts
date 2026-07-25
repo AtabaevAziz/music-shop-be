@@ -4,6 +4,7 @@ import { ApiException } from '../common/exceptions/api.exception';
 import { OrderStatus } from '../common/enums/order-status.enum';
 import { ORDER_STATUS_TRANSITIONS } from '../common/constants/workflow.constants';
 import { createId } from '../common/utils/id.util';
+import { getNextSequentialPrefixedId, isUniqueConstraintError } from '../common/utils/sequential-id.util';
 import { PrismaService } from '../database/prisma.service';
 import { CreateClientOrderDto } from './dto/create-client-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
@@ -165,35 +166,62 @@ export class OrdersService {
         }
       }
 
-      const orderId = createId('ORD');
       const createdAt = new Date();
+      let order: OrderRecord | null = null;
+      let orderId = '';
 
-      const order = await tx.order.create({
-        data: {
-          id: orderId,
-          customerId,
-          paymentStatus: PrismaPaymentStatus.pending,
-          status: PrismaOrderStatus.new,
-          notes: payload.notes.trim(),
-          createdAt,
-          updatedAt: createdAt,
-          items: {
-            create: payload.items.map((item) => {
-              const product = productMap.get(item.productId);
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        const existingOrderIds = await tx.order.findMany({
+          where: { id: { startsWith: 'ORD-' } },
+          select: { id: true }
+        });
 
-              return {
-                id: createId('order-item'),
-                productId: item.productId,
-                qty: item.qty,
-                unitPrice: product?.price ?? item.unitPrice
-              };
-            })
+        orderId = getNextSequentialPrefixedId(
+          existingOrderIds.map((item) => item.id),
+          'ORD',
+          1001
+        );
+
+        try {
+          order = await tx.order.create({
+            data: {
+              id: orderId,
+              customerId,
+              paymentStatus: PrismaPaymentStatus.pending,
+              status: PrismaOrderStatus.new,
+              notes: payload.notes.trim(),
+              createdAt,
+              updatedAt: createdAt,
+              items: {
+                create: payload.items.map((item) => {
+                  const product = productMap.get(item.productId);
+
+                  return {
+                    id: createId('order-item'),
+                    productId: item.productId,
+                    qty: item.qty,
+                    unitPrice: product?.price ?? item.unitPrice
+                  };
+                })
+              }
+            },
+            include: {
+              items: true
+            }
+          });
+          break;
+        } catch (error: unknown) {
+          if (isUniqueConstraintError(error)) {
+            continue;
           }
-        },
-        include: {
-          items: true
+
+          throw error;
         }
-      });
+      }
+
+      if (!order) {
+        throw ApiException.conflict('Could not allocate a new order number. Please retry.');
+      }
 
       for (const [productId, qty] of stockDemand.entries()) {
         const product = productMap.get(productId);

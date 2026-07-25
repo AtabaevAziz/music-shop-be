@@ -831,6 +831,7 @@ describe('Music Shop initial phase (e2e)', () => {
       .expect((response) => {
         expect(response.body.repairRequest).toEqual(
           expect.objectContaining({
+            id: expect.stringMatching(/^REP-\d+$/),
             customerId: 'customer-002',
             instrumentName: 'Yamaha Arius',
             brand: 'Yamaha',
@@ -853,6 +854,7 @@ describe('Music Shop initial phase (e2e)', () => {
       })
       .expect(201)
       .expect((response) => {
+        expect(response.body.repairRequest.id).toMatch(/^REP-\d+$/);
         expect(response.body.repairRequest.customerId).toBe('customer-001');
         expect(response.body.repairRequest.instrumentName).toBe('Korg B2');
         expect(response.body.repairRequest.brand).toBe('Korg');
@@ -1017,6 +1019,7 @@ describe('Music Shop initial phase (e2e)', () => {
       })
       .expect(201)
       .expect((response) => {
+        expect(response.body.order.id).toMatch(/^ORD-\d+$/);
         expect(response.body.order.customerId).toBe('customer-001');
         expect(response.body.order.status).toBe('new');
         expect(response.body.order.items[0].unitPrice).toBe(8700000);
@@ -1070,6 +1073,7 @@ describe('Music Shop initial phase (e2e)', () => {
       })
       .expect(201)
       .expect((response) => {
+        expect(response.body.order.id).toMatch(/^ORD-\d+$/);
         expect(response.body.order.customerId).toMatch(/^customer/);
         expect(response.body.order.status).toBe('new');
         expect(response.body.order.notes).toContain('Public checkout');
@@ -1089,6 +1093,7 @@ describe('Music Shop initial phase (e2e)', () => {
       })
       .expect(201)
       .expect((response) => {
+        expect(response.body.repairRequest.id).toMatch(/^REP-\d+$/);
         expect(response.body.repairRequest.customerId).toMatch(/^customer/);
         expect(response.body.repairRequest.instrumentName).toBe('Digital piano');
         expect(response.body.repairRequest.brand).toBe('Casio PX-S1100');
