@@ -88,6 +88,69 @@ describe('Music Shop initial phase (e2e)', () => {
       });
   });
 
+  it('registers a new client, returns a session and resolves it through auth/session', async () => {
+    const agent = request.agent(app.getHttpServer());
+
+    let customerId = '';
+
+    await agent
+      .post('/api/v1/auth/register')
+      .send({
+        name: '  New Client  ',
+        phone: '  +998901112233  ',
+        email: '  NEW.CLIENT@EXAMPLE.COM  ',
+        password: 'Secret!1'
+      })
+      .expect(201)
+      .expect((response) => {
+        expect(response.body.session.role).toBe('client');
+        expect(response.body.session.name).toBe('New Client');
+        expect(response.body.session.customerId).toEqual(expect.any(String));
+        customerId = response.body.session.customerId;
+      });
+
+    const createdCustomer = await prisma.customer.findUnique({
+      where: { id: customerId }
+    });
+
+    expect(createdCustomer).toEqual(
+      expect.objectContaining({
+        name: 'New Client',
+        fullName: 'New Client',
+        phone: '+998901112233',
+        email: 'new.client@example.com',
+        status: 'active'
+      })
+    );
+    expect(createdCustomer?.passwordHash).not.toBe('Secret!1');
+
+    await agent
+      .get('/api/v1/auth/session')
+      .expect(200)
+      .expect((response) => {
+        expect(response.body.session).toEqual({
+          role: 'client',
+          name: 'New Client',
+          customerId
+        });
+      });
+  });
+
+  it('rejects duplicate email during public client registration', async () => {
+    await request(app.getHttpServer())
+      .post('/api/v1/auth/register')
+      .send({
+        name: 'Duplicate Client',
+        phone: '+998901234567',
+        email: 'amina@example.com',
+        password: 'Secret!1'
+      })
+      .expect(409)
+      .expect((response) => {
+        expect(response.body.error.field).toBe('email');
+      });
+  });
+
   it('accepts trimmed admin credentials and returns the same session shape', async () => {
     const agent = request.agent(app.getHttpServer());
 
@@ -139,9 +202,18 @@ describe('Music Shop initial phase (e2e)', () => {
       });
   });
 
-  it('returns settings for authenticated users and forbids client updates', async () => {
+  it('forbids clients from accessing business settings', async () => {
     const agent = request.agent(app.getHttpServer());
     await loginAsClient(agent);
+
+    await agent
+      .get('/api/v1/settings')
+      .expect(403);
+  });
+
+  it('returns settings for admins and allows admin updates', async () => {
+    const agent = request.agent(app.getHttpServer());
+    await loginAsAdmin(agent);
 
     await agent
       .get('/api/v1/settings')
@@ -163,7 +235,17 @@ describe('Music Shop initial phase (e2e)', () => {
         defaultProductStatus: 'active',
         defaultMarkupPercent: 30
       })
-      .expect(403);
+      .expect(200);
+  });
+
+  it('forbids admins from using client-only endpoints', async () => {
+    const agent = request.agent(app.getHttpServer());
+    await loginAsAdmin(agent);
+
+    await agent.get('/api/v1/client/me').expect(403);
+    await agent.get('/api/v1/client/products').expect(403);
+    await agent.get('/api/v1/client/orders').expect(403);
+    await agent.get('/api/v1/client/repairs').expect(403);
   });
 
   it('updates settings and uppercases currency', async () => {

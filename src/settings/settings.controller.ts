@@ -5,7 +5,7 @@ import { UpdateSettingsDto } from './dto/update-settings.dto';
 import { SettingsService } from './settings.service';
 
 @Controller('settings')
-@UseGuards(SessionAuthGuard)
+@UseGuards(SessionAuthGuard, AdminOnlyGuard)
 export class SettingsController {
   constructor(private readonly settingsService: SettingsService) {}
 
@@ -16,7 +16,6 @@ export class SettingsController {
   }
 
   @Put()
-  @UseGuards(AdminOnlyGuard)
   async updateSettings(
     @Body() payload: UpdateSettingsDto
   ): Promise<{ settings: Awaited<ReturnType<SettingsService['updateSettings']>> }> {
