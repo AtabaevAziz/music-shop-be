@@ -2,6 +2,7 @@ import { Body, Controller, Get, HttpCode, Post, Req, Res } from '@nestjs/common'
 import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
+import { RegisterDto } from './dto/register.dto';
 import { SessionService } from './session.service';
 
 @Controller('auth')
@@ -18,15 +19,19 @@ export class AuthController {
     @Res({ passthrough: true }) response: Response
   ): Promise<{ session: { role: string; name: string; customerId?: string } }> {
     const result = await this.authService.login(body);
+    this.setSessionCookie(response, result.sessionId);
 
-    response.cookie(this.sessionService.cookieName, result.sessionId, {
-      httpOnly: true,
-      sameSite: this.sessionService.sameSiteCookie,
-      secure: this.sessionService.secureCookie,
-      maxAge: this.sessionService.sessionTtlMs,
-      domain: this.sessionService.cookieDomain,
-      path: '/'
-    });
+    return { session: result.session };
+  }
+
+  @Post('register')
+  @HttpCode(201)
+  async register(
+    @Body() body: RegisterDto,
+    @Res({ passthrough: true }) response: Response
+  ): Promise<{ session: { role: string; name: string; customerId?: string } }> {
+    const result = await this.authService.register(body);
+    this.setSessionCookie(response, result.sessionId);
 
     return { session: result.session };
   }
@@ -55,6 +60,17 @@ export class AuthController {
       httpOnly: true,
       sameSite: this.sessionService.sameSiteCookie,
       secure: this.sessionService.secureCookie,
+      domain: this.sessionService.cookieDomain,
+      path: '/'
+    });
+  }
+
+  private setSessionCookie(response: Response, sessionId: string): void {
+    response.cookie(this.sessionService.cookieName, sessionId, {
+      httpOnly: true,
+      sameSite: this.sessionService.sameSiteCookie,
+      secure: this.sessionService.secureCookie,
+      maxAge: this.sessionService.sessionTtlMs,
       domain: this.sessionService.cookieDomain,
       path: '/'
     });
