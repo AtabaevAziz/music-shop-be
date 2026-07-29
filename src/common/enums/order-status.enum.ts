@@ -1,9 +1,12 @@
 export enum OrderStatus {
   New = 'new',
+  AwaitingPayment = 'awaiting_payment',
+  Paid = 'paid',
   Confirmed = 'confirmed',
+  Processing = 'processing',
   Packed = 'packed',
-  ReadyForPickup = 'ready_for_pickup',
-  Completed = 'completed',
-  Cancelled = 'cancelled'
+  Shipped = 'shipped',
+  Delivered = 'delivered',
+  Cancelled = 'cancelled',
+  Returned = 'returned'
 }
-

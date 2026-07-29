@@ -1,7 +1,9 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { SessionAuthGuard } from '../auth/guards/session-auth.guard';
 import { AdminOnlyGuard } from '../auth/guards/admin-only.guard';
+import { RequestWithSession } from '../auth/interfaces/request-with-session.interface';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
+import { UpdateOrderPaymentDto } from './dto/update-order-payment.dto';
 import { OrdersService } from './orders.service';
 
 @Controller('orders')
@@ -14,6 +16,7 @@ export class OrdersController {
     @Query('status') status?: string,
     @Query('paymentStatus') paymentStatus?: string,
     @Query('customerId') customerId?: string,
+    @Query('search') search?: string,
     @Query('limit') limit?: string
   ) {
     const parsedLimit = limit ? Number(limit) : undefined;
@@ -21,6 +24,7 @@ export class OrdersController {
       status,
       paymentStatus,
       customerId,
+      search,
       limit: parsedLimit && Number.isFinite(parsedLimit) && parsedLimit > 0 ? parsedLimit : undefined
     });
 
@@ -34,8 +38,26 @@ export class OrdersController {
   }
 
   @Post(':id/status')
-  async updateOrderStatus(@Param('id') id: string, @Body() payload: UpdateOrderStatusDto) {
-    const order = await this.ordersService.updateOrderStatus(id, payload);
+  async updateOrderStatus(
+    @Param('id') id: string,
+    @Body() payload: UpdateOrderStatusDto,
+    @Req() request: RequestWithSession
+  ) {
+    const order = await this.ordersService.updateOrderStatus(id, payload, {
+      employeeId: request.currentSession?.employeeId
+    });
+    return { order };
+  }
+
+  @Post(':id/payment-status')
+  async updateOrderPaymentStatus(
+    @Param('id') id: string,
+    @Body() payload: UpdateOrderPaymentDto,
+    @Req() request: RequestWithSession
+  ) {
+    const order = await this.ordersService.updateOrderPayment(id, payload, {
+      employeeId: request.currentSession?.employeeId
+    });
     return { order };
   }
 }

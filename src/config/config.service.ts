@@ -2,7 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { Condition } from '../common/enums/condition.enum';
 import { CustomerTier } from '../common/enums/customer-tier.enum';
+import { DeliveryMethod } from '../common/enums/delivery-method.enum';
+import { DeliveryStatus } from '../common/enums/delivery-status.enum';
 import { OrderStatus } from '../common/enums/order-status.enum';
+import { PackagingStatus } from '../common/enums/packaging-status.enum';
+import { PaymentMethod } from '../common/enums/payment-method.enum';
 import { PaymentStatus } from '../common/enums/payment-status.enum';
 import { ProductStatus } from '../common/enums/product-status.enum';
 import { RepairStatus } from '../common/enums/repair-status.enum';
@@ -171,7 +175,12 @@ export class RuntimeConfigService {
         customerTiers: this.toDictionary(Object.values(CustomerTier)),
         productStatuses: this.toDictionary(Object.values(ProductStatus)),
         repairStatuses: this.toDictionary(Object.values(RepairStatus)),
+        orderStatuses: this.toDictionary(Object.values(OrderStatus)),
+        paymentMethods: this.toDictionary(Object.values(PaymentMethod)),
         paymentStatuses: this.toDictionary(Object.values(PaymentStatus)),
+        deliveryMethods: this.toDictionary(Object.values(DeliveryMethod)),
+        deliveryStatuses: this.toDictionary(Object.values(DeliveryStatus)),
+        packagingStatuses: this.toDictionary(Object.values(PackagingStatus)),
         conditions: this.toDictionary(Object.values(Condition)),
         roles: this.toDictionary(Object.values(Role))
       }

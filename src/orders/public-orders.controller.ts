@@ -1,6 +1,7 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { CustomersService } from '../customers/customers.service';
 import { CreatePublicOrderDto } from './dto/create-public-order.dto';
+import { StubPaymentWebhookDto } from './dto/stub-payment-webhook.dto';
 import { OrdersService } from './orders.service';
 
 @Controller('public/orders')
@@ -18,25 +19,38 @@ export class PublicOrdersController {
       email: payload.email
     });
 
-    const order = await this.ordersService.createClientOrder(customer.id, {
+    const order = await this.ordersService.createPublicOrder({
+      customerId: customer.id,
+      customerName: payload.customerName,
+      phone: payload.phone,
+      email: payload.email,
+      address: payload.address,
+      paymentMethod: payload.paymentMethod,
+      deliveryMethod: payload.deliveryMethod,
+      deliveryCompany: payload.deliveryCompany,
+      notes: payload.comment,
       items: payload.items,
-      notes: this.formatPublicOrderNotes(payload)
     });
 
     return { order };
   }
 
-  private formatPublicOrderNotes(payload: CreatePublicOrderDto): string {
-    const lines = [
-      `Public checkout`,
-      `Customer: ${payload.customerName.trim()}`,
-      `Phone: ${payload.phone.trim()}`,
-      payload.email?.trim() ? `Email: ${payload.email.trim().toLowerCase()}` : null,
-      `Address: ${payload.address.trim()}`,
-      `Payment: ${payload.paymentMethod.trim()}`,
-      payload.comment?.trim() ? `Comment: ${payload.comment.trim()}` : null
-    ].filter(Boolean);
+  @Get(':orderNumber')
+  async getOrder(
+    @Param('orderNumber') orderNumber: string,
+    @Query('phone') phone?: string,
+    @Query('email') email?: string
+  ) {
+    const order = await this.ordersService.getOrderByOrderNumber(orderNumber, {
+      phone,
+      email
+    });
+    return { order };
+  }
 
-    return lines.join('\n');
+  @Post(':id/payment-webhook')
+  async processStubWebhook(@Param('id') id: string, @Body() payload: StubPaymentWebhookDto) {
+    const order = await this.ordersService.handleStubPaymentWebhook(id, payload);
+    return { order };
   }
 }

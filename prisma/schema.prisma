@@ -20,18 +20,23 @@ enum ProductStatus {
 
 enum PaymentStatus {
   pending
-  partial
   paid
+  failed
+  cancelled
   refunded
 }
 
 enum OrderStatus {
   new
+  awaiting_payment
+  paid
   confirmed
+  processing
   packed
-  ready_for_pickup
-  completed
+  shipped
+  delivered
   cancelled
+  returned
 }
 
 enum RepairStatus {
@@ -60,6 +65,47 @@ enum CustomerTier {
   vip
 }
 
+enum PaymentMethod {
+  cash
+  online
+}
+
+enum DeliveryMethod {
+  pickup
+  courier
+  delivery_company
+  post
+}
+
+enum DeliveryStatus {
+  not_ready
+  ready_for_shipment
+  shipped
+  in_transit
+  delivered
+  delivery_failed
+  returned
+}
+
+enum PackagingStatus {
+  not_started
+  in_progress
+  packed
+}
+
+enum InventoryMovementType {
+  reserve
+  release
+  ship
+  manual_adjustment
+}
+
+enum ActorType {
+  system
+  employee
+  customer
+}
+
 model Employee {
   id           String    @id
   name         String
@@ -72,6 +118,8 @@ model Employee {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   sessions     Session[]
+  packagingTasks PackagingDetail[]   @relation("PackagingEmployee")
+  statusChanges  OrderStatusHistory[] @relation("OrderStatusChangedByEmployee")
 }
 
 model Customer {
@@ -123,6 +171,7 @@ model Category {
 model Product {
   id               String              @id
   name             String
+  slug             String?             @unique
   sku              String              @unique
   barcode          String?
   categoryId       String
@@ -130,6 +179,7 @@ model Product {
   price            Int
   costPrice        Int
   stockQty         Int
+  reservedQty      Int                 @default(0)
   minStockQty      Int?
   status           ProductStatus
   shortDescription String
@@ -153,7 +203,10 @@ model InventoryMovement {
   id        String   @id
   productId String
   delta     Int
+  type      InventoryMovementType @default(manual_adjustment)
   reason    String
+  referenceType String?
+  referenceId String?
   createdAt DateTime @default(now())
   product   Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
 
@@ -162,32 +215,123 @@ model InventoryMovement {
 }
 
 model Order {
-  id            String        @id
-  customerId    String
-  paymentStatus PaymentStatus
-  status        OrderStatus
-  notes         String
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  customer      Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  items         OrderItem[]
+  id                    String               @id
+  orderNumber           String               @unique
+  customerId            String
+  customerNameSnapshot  String
+  phoneSnapshot         String
+  emailSnapshot         String?
+  deliveryAddressSnapshot String
+  paymentMethod         PaymentMethod
+  paymentStatus         PaymentStatus
+  deliveryMethod        DeliveryMethod
+  status                OrderStatus
+  notes                 String
+  subtotal              Int                  @default(0)
+  deliveryCost          Int                  @default(0)
+  total                 Int                  @default(0)
+  confirmedAt           DateTime?
+  packedAt              DateTime?
+  shippedAt             DateTime?
+  deliveredAt           DateTime?
+  cancelledAt           DateTime?
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+  customer              Customer             @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  items                 OrderItem[]
+  payments              Payment[]
+  delivery              Delivery?
+  packaging             PackagingDetail?
+  statusHistory         OrderStatusHistory[]
 
   @@index([customerId])
   @@index([status])
   @@index([paymentStatus])
+  @@index([orderNumber])
 }
 
 model OrderItem {
-  id        String  @id
-  orderId   String
-  productId String
-  qty       Int
-  unitPrice Int
-  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product   Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+  id          String  @id
+  orderId     String
+  productId   String
+  productName String
+  quantity    Int
+  unitPrice   Int
+  totalPrice  Int
+  order       Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product     Product @relation(fields: [productId], references: [id], onDelete: Restrict)
 
   @@index([orderId])
   @@index([productId])
+}
+
+model Payment {
+  id             String        @id
+  orderId        String
+  method         PaymentMethod
+  status         PaymentStatus
+  amount         Int
+  transactionId  String?
+  provider       String?
+  providerPayload Json?
+  paidAt         DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  order          Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([status])
+}
+
+model Delivery {
+  id             String         @id
+  orderId        String         @unique
+  method         DeliveryMethod
+  company        String?
+  address        String
+  trackingNumber String?
+  shippingCost   Int            @default(0)
+  status         DeliveryStatus
+  shippedAt      DateTime?
+  deliveredAt    DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  order          Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+}
+
+model PackagingDetail {
+  id           String          @id
+  orderId      String          @unique
+  status       PackagingStatus
+  packedAt     DateTime?
+  employeeId   String?
+  weightGrams  Int?
+  dimensions   String?
+  fragile      Boolean         @default(false)
+  packageType  String?
+  comment      String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  order        Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  employee     Employee?       @relation("PackagingEmployee", fields: [employeeId], references: [id], onDelete: SetNull)
+}
+
+model OrderStatusHistory {
+  id           String      @id
+  orderId      String
+  oldStatus    OrderStatus?
+  newStatus    OrderStatus
+  changedByType ActorType  @default(system)
+  changedById   String?
+  comment       String?
+  changedAt     DateTime   @default(now())
+  order         Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  employee      Employee?  @relation("OrderStatusChangedByEmployee", fields: [changedById], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+  @@index([changedAt])
 }
 
 model RepairRequest {

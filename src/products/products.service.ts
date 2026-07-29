@@ -3,6 +3,7 @@ import { Condition, Prisma, Product } from '@prisma/client';
 import { ApiException } from '../common/exceptions/api.exception';
 import { createId } from '../common/utils/id.util';
 import { normalizeMediaPath } from '../common/utils/media.util';
+import { slugify } from '../common/utils/slug.util';
 import { isAbsolutePathOrUrl } from '../common/utils/url.util';
 import { PrismaService } from '../database/prisma.service';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -12,6 +13,7 @@ import { UpdateProductDto } from './dto/update-product.dto';
 type ProductWire = {
   id: string;
   name: string;
+  slug?: string;
   sku: string;
   barcode: string | null;
   categoryId: string;
@@ -19,6 +21,8 @@ type ProductWire = {
   price: number;
   costPrice: number;
   stockQty: number;
+  reservedQty: number;
+  availableQty: number;
   minStockQty?: number;
   status: string;
   shortDescription: string;
@@ -41,9 +45,12 @@ type ProductFilters = {
 type PublicProductWire = {
   id: string;
   name: string;
+  slug?: string;
   sku: string;
   price: number;
   stockQty: number;
+  reservedQty: number;
+  availableQty: number;
   shortDescription: string;
   description: string;
   specs: Record<string, string>;
@@ -161,6 +168,7 @@ export class ProductsService {
       data: {
         id: createId('product'),
         name: payload.name.trim(),
+        slug: slugify(payload.name),
         sku: payload.sku.trim(),
         barcode: this.normalizeNullableText(payload.barcode),
         categoryId: payload.categoryId,
@@ -212,6 +220,7 @@ export class ProductsService {
       where: { id },
       data: {
         name: payload.name?.trim(),
+        slug: payload.name?.trim() ? slugify(payload.name) : undefined,
         sku: payload.sku?.trim(),
         barcode:
           payload.barcode === undefined
@@ -408,6 +417,7 @@ export class ProductsService {
     return {
       id: product.id,
       name: product.name,
+      slug: product.slug ?? undefined,
       sku: product.sku,
       barcode: product.barcode,
       categoryId: product.categoryId,
@@ -415,6 +425,8 @@ export class ProductsService {
       price: product.price,
       costPrice: product.costPrice,
       stockQty: product.stockQty,
+      reservedQty: product.reservedQty,
+      availableQty: product.stockQty - product.reservedQty,
       minStockQty: product.minStockQty ?? undefined,
       status: product.status,
       shortDescription: product.shortDescription,
@@ -434,9 +446,12 @@ export class ProductsService {
     return {
       id: product.id,
       name: product.name,
+      slug: product.slug ?? undefined,
       sku: product.sku,
       price: product.price,
       stockQty: product.stockQty,
+      reservedQty: product.reservedQty,
+      availableQty: product.stockQty - product.reservedQty,
       shortDescription: product.shortDescription,
       description: product.description,
       specs: product.specs as Record<string, string>,

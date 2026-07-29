@@ -37,13 +37,13 @@ export class FinanceService {
     let paidOrders = 0;
 
     for (const order of orders) {
-      const orderTotal = order.items.reduce((sum, item) => sum + item.qty * item.unitPrice, 0);
+      const orderTotal = order.total;
       const orderCost = order.items.reduce(
-        (sum, item) => sum + (item.product?.costPrice ?? 0) * item.qty,
+        (sum, item) => sum + (item.product?.costPrice ?? 0) * item.quantity,
         0
       );
 
-      if (order.paymentStatus !== 'refunded') {
+      if (!['refunded', 'cancelled', 'failed'].includes(order.paymentStatus)) {
         revenue += orderTotal;
         grossMargin += orderTotal - orderCost;
       }

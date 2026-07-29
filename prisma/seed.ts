@@ -49,17 +49,28 @@ export async function upsertMockSeedData(prisma: SeedClient): Promise<void> {
 }
 
 async function clearDatabase(prisma: SeedClient): Promise<void> {
-  await prisma.session.deleteMany();
-  await prisma.orderItem.deleteMany();
-  await prisma.inventoryMovement.deleteMany();
-  await prisma.repairRequest.deleteMany();
-  await prisma.order.deleteMany();
-  await prisma.product.deleteMany();
-  await prisma.category.deleteMany();
-  await prisma.customer.deleteMany();
-  await prisma.employee.deleteMany();
-  await prisma.activity.deleteMany();
-  await prisma.businessSettings.deleteMany();
+  await deleteManyIfExists(prisma, 'session');
+  await deleteManyIfExists(prisma, 'orderStatusHistory');
+  await deleteManyIfExists(prisma, 'payment');
+  await deleteManyIfExists(prisma, 'delivery');
+  await deleteManyIfExists(prisma, 'packagingDetail');
+  await deleteManyIfExists(prisma, 'orderItem');
+  await deleteManyIfExists(prisma, 'inventoryMovement');
+  await deleteManyIfExists(prisma, 'repairRequest');
+  await deleteManyIfExists(prisma, 'order');
+  await deleteManyIfExists(prisma, 'product');
+  await deleteManyIfExists(prisma, 'category');
+  await deleteManyIfExists(prisma, 'customer');
+  await deleteManyIfExists(prisma, 'employee');
+  await deleteManyIfExists(prisma, 'activity');
+  await deleteManyIfExists(prisma, 'businessSettings');
+}
+
+async function deleteManyIfExists(prisma: SeedClient, delegateName: string): Promise<void> {
+  const delegate = (prisma as Record<string, { deleteMany?: () => Promise<unknown> }>)[delegateName];
+  if (typeof delegate?.deleteMany === 'function') {
+    await delegate.deleteMany();
+  }
 }
 
 async function upsertSeedData(prisma: SeedClient): Promise<void> {
@@ -230,6 +241,12 @@ function buildProductPayload(product: (typeof productSeeds)[number]) {
     price: product.price,
     costPrice: product.costPrice,
     stockQty: product.stockQty,
+    reservedQty: 0,
+    slug: product.name
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, ''),
     minStockQty: product.minStockQty,
     status: product.status,
     shortDescription: normalizeSeedRequiredString(product.shortDescription),
@@ -247,6 +264,7 @@ function buildInventoryMovementPayload(movement: (typeof inventoryMovementSeeds)
   return {
     productId: movement.productId,
     delta: movement.delta,
+    type: 'manual_adjustment',
     reason: normalizeSeedRequiredString(movement.reason),
     createdAt: movement.createdAt
   };
@@ -254,10 +272,20 @@ function buildInventoryMovementPayload(movement: (typeof inventoryMovementSeeds)
 
 function buildOrderPayload(order: (typeof orderSeeds)[number]) {
   return {
+    orderNumber: order.orderNumber,
     customerId: order.customerId,
+    customerNameSnapshot: order.customerNameSnapshot,
+    phoneSnapshot: order.phoneSnapshot,
+    emailSnapshot: order.emailSnapshot,
+    deliveryAddressSnapshot: order.deliveryAddressSnapshot,
+    paymentMethod: order.paymentMethod,
     paymentStatus: order.paymentStatus,
+    deliveryMethod: order.deliveryMethod,
     status: order.status,
     notes: normalizeSeedRequiredString(order.notes),
+    subtotal: order.subtotal,
+    deliveryCost: order.deliveryCost,
+    total: order.total,
     createdAt: order.createdAt,
     updatedAt: order.updatedAt
   };
@@ -267,8 +295,10 @@ function buildOrderItemPayload(item: (typeof orderItemSeeds)[number]) {
   return {
     orderId: item.orderId,
     productId: item.productId,
-    qty: item.qty,
-    unitPrice: item.unitPrice
+    productName: item.productName,
+    quantity: item.quantity,
+    unitPrice: item.unitPrice,
+    totalPrice: item.totalPrice
   };
 }
 
