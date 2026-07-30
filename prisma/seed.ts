@@ -5,10 +5,14 @@ import {
   businessSettingsSeed,
   categorySeeds,
   customerSeeds,
+  deliverySeeds,
   employeeSeeds,
   inventoryMovementSeeds,
   orderItemSeeds,
   orderSeeds,
+  orderStatusHistorySeeds,
+  packagingDetailSeeds,
+  paymentSeeds,
   productSeeds,
   repairSeeds
 } from './data';
@@ -166,6 +170,50 @@ async function upsertSeedData(prisma: SeedClient): Promise<void> {
     });
   }
 
+  for (const payment of paymentSeeds) {
+    await prisma.payment.upsert({
+      where: { id: payment.id },
+      create: {
+        id: payment.id,
+        ...buildPaymentPayload(payment)
+      },
+      update: buildPaymentPayload(payment)
+    });
+  }
+
+  for (const delivery of deliverySeeds) {
+    await prisma.delivery.upsert({
+      where: { orderId: delivery.orderId },
+      create: {
+        id: delivery.id,
+        ...buildDeliveryPayload(delivery)
+      },
+      update: buildDeliveryPayload(delivery)
+    });
+  }
+
+  for (const packagingDetail of packagingDetailSeeds) {
+    await prisma.packagingDetail.upsert({
+      where: { orderId: packagingDetail.orderId },
+      create: {
+        id: packagingDetail.id,
+        ...buildPackagingDetailPayload(packagingDetail)
+      },
+      update: buildPackagingDetailPayload(packagingDetail)
+    });
+  }
+
+  for (const historyEntry of orderStatusHistorySeeds) {
+    await prisma.orderStatusHistory.upsert({
+      where: { id: historyEntry.id },
+      create: {
+        id: historyEntry.id,
+        ...buildOrderStatusHistoryPayload(historyEntry)
+      },
+      update: buildOrderStatusHistoryPayload(historyEntry)
+    });
+  }
+
   for (const repair of repairSeeds) {
     await prisma.repairRequest.upsert({
       where: { id: repair.id },
@@ -241,7 +289,7 @@ function buildProductPayload(product: (typeof productSeeds)[number]) {
     price: product.price,
     costPrice: product.costPrice,
     stockQty: product.stockQty,
-    reservedQty: 0,
+    reservedQty: 'reservedQty' in product ? product.reservedQty : 0,
     slug: product.name
       .trim()
       .toLowerCase()
@@ -264,8 +312,10 @@ function buildInventoryMovementPayload(movement: (typeof inventoryMovementSeeds)
   return {
     productId: movement.productId,
     delta: movement.delta,
-    type: 'manual_adjustment',
+    type: movement.type,
     reason: normalizeSeedRequiredString(movement.reason),
+    referenceType: normalizeSeedOptionalString(movement.referenceType) ?? null,
+    referenceId: normalizeSeedOptionalString(movement.referenceId) ?? null,
     createdAt: movement.createdAt
   };
 }
@@ -299,6 +349,65 @@ function buildOrderItemPayload(item: (typeof orderItemSeeds)[number]) {
     quantity: item.quantity,
     unitPrice: item.unitPrice,
     totalPrice: item.totalPrice
+  };
+}
+
+function buildPaymentPayload(payment: (typeof paymentSeeds)[number]) {
+  return {
+    orderId: payment.orderId,
+    method: payment.method,
+    status: payment.status,
+    amount: payment.amount,
+    transactionId: normalizeSeedOptionalString(payment.transactionId) ?? null,
+    provider: normalizeSeedOptionalString(payment.provider) ?? null,
+    ...(payment.providerPayload === null ? {} : { providerPayload: payment.providerPayload }),
+    paidAt: payment.paidAt,
+    createdAt: payment.createdAt,
+    updatedAt: payment.updatedAt
+  };
+}
+
+function buildDeliveryPayload(delivery: (typeof deliverySeeds)[number]) {
+  return {
+    orderId: delivery.orderId,
+    method: delivery.method,
+    company: normalizeSeedOptionalString(delivery.company) ?? null,
+    address: normalizeSeedRequiredString(delivery.address),
+    trackingNumber: normalizeSeedOptionalString(delivery.trackingNumber) ?? null,
+    shippingCost: delivery.shippingCost,
+    status: delivery.status,
+    shippedAt: delivery.shippedAt,
+    deliveredAt: delivery.deliveredAt,
+    createdAt: delivery.createdAt,
+    updatedAt: delivery.updatedAt
+  };
+}
+
+function buildPackagingDetailPayload(packagingDetail: (typeof packagingDetailSeeds)[number]) {
+  return {
+    orderId: packagingDetail.orderId,
+    status: packagingDetail.status,
+    packedAt: packagingDetail.packedAt,
+    employeeId: normalizeSeedOptionalString(packagingDetail.employeeId) ?? null,
+    weightGrams: packagingDetail.weightGrams,
+    dimensions: normalizeSeedOptionalString(packagingDetail.dimensions) ?? null,
+    fragile: packagingDetail.fragile,
+    packageType: normalizeSeedOptionalString(packagingDetail.packageType) ?? null,
+    comment: normalizeSeedOptionalString(packagingDetail.comment) ?? null,
+    createdAt: packagingDetail.createdAt,
+    updatedAt: packagingDetail.updatedAt
+  };
+}
+
+function buildOrderStatusHistoryPayload(historyEntry: (typeof orderStatusHistorySeeds)[number]) {
+  return {
+    orderId: historyEntry.orderId,
+    oldStatus: historyEntry.oldStatus,
+    newStatus: historyEntry.newStatus,
+    changedByType: historyEntry.changedByType,
+    changedById: normalizeSeedOptionalString(historyEntry.changedById) ?? null,
+    comment: normalizeSeedOptionalString(historyEntry.comment) ?? null,
+    changedAt: historyEntry.changedAt
   };
 }
 

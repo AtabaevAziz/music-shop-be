@@ -23,7 +23,7 @@
     "prisma:seed:upsert": "tsx prisma/seed.ts --mode=upsert"
   },
   "prisma": {
-    "seed": "tsx prisma/seed.ts"
+    "seed": "prisma generate && tsx prisma/seed.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.2",
