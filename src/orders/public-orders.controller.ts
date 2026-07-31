@@ -14,17 +14,24 @@ export class PublicOrdersController {
   @Post()
   async createOrder(@Body() payload: CreatePublicOrderDto) {
     const customer = await this.customersService.findOrCreatePublicCustomer({
-      name: payload.customerName,
+      name: `${payload.firstName} ${payload.lastName}`.trim(),
       phone: payload.phone,
       email: payload.email
     });
 
     const order = await this.ordersService.createPublicOrder({
       customerId: customer.id,
-      customerName: payload.customerName,
+      firstName: payload.firstName,
+      lastName: payload.lastName,
       phone: payload.phone,
       email: payload.email,
-      address: payload.address,
+      country: payload.country,
+      region: payload.region,
+      city: payload.city,
+      street: payload.street,
+      house: payload.house,
+      apartment: payload.apartment,
+      postalCode: payload.postalCode,
       paymentMethod: payload.paymentMethod,
       deliveryMethod: payload.deliveryMethod,
       deliveryCompany: payload.deliveryCompany,

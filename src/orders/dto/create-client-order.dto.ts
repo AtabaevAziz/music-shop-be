@@ -12,8 +12,48 @@ export class CreateClientOrderDto {
   items!: ClientOrderItemDto[];
 
   @IsString()
-  @MinLength(4)
-  address!: string;
+  @MinLength(2)
+  firstName!: string;
+
+  @IsString()
+  @MinLength(2)
+  lastName!: string;
+
+  @IsString()
+  @MinLength(6)
+  phone!: string;
+
+  @IsOptional()
+  @IsString()
+  email?: string;
+
+  @IsString()
+  @MinLength(2)
+  country!: string;
+
+  @IsString()
+  @MinLength(2)
+  region!: string;
+
+  @IsString()
+  @MinLength(2)
+  city!: string;
+
+  @IsString()
+  @MinLength(2)
+  street!: string;
+
+  @IsString()
+  @MinLength(1)
+  house!: string;
+
+  @IsOptional()
+  @IsString()
+  apartment?: string;
+
+  @IsString()
+  @MinLength(3)
+  postalCode!: string;
 
   @IsEnum(PaymentMethod)
   paymentMethod!: PaymentMethod;
@@ -28,5 +68,5 @@ export class CreateClientOrderDto {
   @IsOptional()
   @IsString()
   @MinLength(2)
-  notes?: string;
+  comment?: string;
 }

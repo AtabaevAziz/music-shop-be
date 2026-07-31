@@ -12,7 +12,6 @@ import {
 import { DeliveryMethod } from '../common/enums/delivery-method.enum';
 import { OrderStatus } from '../common/enums/order-status.enum';
 import { PaymentMethod } from '../common/enums/payment-method.enum';
-import { PaymentStatus } from '../common/enums/payment-status.enum';
 import { ApiException } from '../common/exceptions/api.exception';
 import { ORDER_STATUS_TRANSITIONS } from '../common/constants/workflow.constants';
 import { createId } from '../common/utils/id.util';
@@ -31,6 +30,8 @@ type OrderFilters = {
   limit?: number;
 };
 
+type CheckoutItemInput = CreateClientOrderDto['items'][number];
+
 type OrderRecord = Prisma.OrderGetPayload<{
   include: {
     items: true;
@@ -45,12 +46,44 @@ type OrderRecord = Prisma.OrderGetPayload<{
   };
 }>;
 
+type OrderContactSnapshot = {
+  firstName: string;
+  lastName: string;
+  name: string;
+  phone: string;
+  email: string | null;
+};
+
+type OrderAddressSnapshot = {
+  country: string;
+  region: string;
+  city: string;
+  street: string;
+  house: string;
+  apartment: string | null;
+  postalCode: string;
+  formatted: string;
+};
+
+type PackagingMeta = {
+  comment: string | null;
+  serialNumbers: string | null;
+  warehouseIssueType: string | null;
+};
+
 type CreateCheckoutPayload = {
   customerId: string;
-  customerName: string;
+  firstName: string;
+  lastName: string;
   phone: string;
   email?: string;
-  address: string;
+  country: string;
+  region: string;
+  city: string;
+  street: string;
+  house: string;
+  apartment?: string;
+  postalCode: string;
   paymentMethod: PaymentMethod;
   deliveryMethod: DeliveryMethod;
   deliveryCompany?: string;
@@ -62,11 +95,8 @@ type OrderWire = {
   id: string;
   orderNumber: string;
   customerId: string;
-  customer: {
-    name: string;
-    phone: string;
-    email: string | null;
-  };
+  customer: OrderContactSnapshot;
+  address: OrderAddressSnapshot;
   items: Array<{
     productId: string;
     productName: string;
@@ -90,6 +120,7 @@ type OrderWire = {
     method: string;
     company: string | null;
     address: string;
+    addressSnapshot: OrderAddressSnapshot;
     trackingNumber: string | null;
     shippingCost: number;
     status: string;
@@ -102,9 +133,18 @@ type OrderWire = {
     packageType: string | null;
     dimensions: string | null;
     weightGrams: number | null;
+    lengthCm: number | null;
+    widthCm: number | null;
+    heightCm: number | null;
     comment: string | null;
+    serialNumbers: string | null;
+    warehouseIssueType: string | null;
     packedAt: Date | null;
     employeeId: string | null;
+  } | null;
+  warehouseIssue: {
+    type: string;
+    comment: string | null;
   } | null;
   status: string;
   subtotal: number;
@@ -174,6 +214,13 @@ export class OrdersService {
   }
 
   async getOrderByOrderNumber(orderNumber: string, verifier?: { phone?: string; email?: string }): Promise<OrderWire> {
+    const phone = verifier?.phone?.trim();
+    const email = verifier?.email?.trim().toLowerCase();
+
+    if (!phone && !email) {
+      throw ApiException.validation('Phone or email is required to verify the order.', 'phone');
+    }
+
     const order = await this.prisma.order.findUnique({
       where: { orderNumber },
       include: this.orderInclude
@@ -183,11 +230,11 @@ export class OrdersService {
       throw ApiException.notFound('Order was not found.');
     }
 
-    if (verifier?.phone && order.phoneSnapshot !== verifier.phone.trim()) {
+    if (phone && order.phoneSnapshot !== phone) {
       throw ApiException.forbidden('Order verification failed.');
     }
 
-    if (verifier?.email && order.emailSnapshot !== verifier.email.trim().toLowerCase()) {
+    if (email && order.emailSnapshot !== email) {
       throw ApiException.forbidden('Order verification failed.');
     }
 
@@ -209,14 +256,21 @@ export class OrdersService {
 
     return this.createCheckoutOrder({
       customerId,
-      customerName: customer.fullName ?? customer.name,
-      phone: customer.phone,
-      email: customer.email,
-      address: payload.address,
+      firstName: payload.firstName,
+      lastName: payload.lastName,
+      phone: payload.phone,
+      email: payload.email,
+      country: payload.country,
+      region: payload.region,
+      city: payload.city,
+      street: payload.street,
+      house: payload.house,
+      apartment: payload.apartment,
+      postalCode: payload.postalCode,
       paymentMethod: payload.paymentMethod,
       deliveryMethod: payload.deliveryMethod,
       deliveryCompany: payload.deliveryCompany,
-      notes: payload.notes,
+      notes: payload.comment,
       items: payload.items
     });
   }
@@ -328,6 +382,7 @@ export class OrdersService {
 
   private async createCheckoutOrder(payload: CreateCheckoutPayload): Promise<OrderWire> {
     return this.prisma.$transaction(async (tx) => {
+      this.validateDeliverySelection(payload);
       const products = await this.loadProductsForCheckout(tx, payload.items);
       const stockDemand = this.getStockDemand(payload.items);
 
@@ -342,30 +397,28 @@ export class OrdersService {
 
       const subtotal = payload.items.reduce((sum, item) => {
         const product = products.get(item.productId)!;
-        return sum + product.price * item.qty;
+        return sum + product.price * this.getItemQuantity(item);
       }, 0);
       const deliveryCost = this.resolveDeliveryCost(payload.deliveryMethod);
       const total = subtotal + deliveryCost;
       const createdAt = new Date();
       const orderNumber = await this.allocateOrderNumber(tx);
-      const initialStatus =
-        payload.paymentMethod === PaymentMethod.Online
-          ? PrismaOrderStatus.awaiting_payment
-          : PrismaOrderStatus.new;
+      const contactSnapshot = this.buildContactSnapshot(payload);
+      const addressSnapshot = this.buildAddressSnapshot(payload);
 
       const order = await tx.order.create({
         data: {
           id: createId('order'),
           orderNumber,
           customerId: payload.customerId,
-          customerNameSnapshot: payload.customerName.trim(),
-          phoneSnapshot: payload.phone.trim(),
-          emailSnapshot: payload.email?.trim().toLowerCase() ?? null,
-          deliveryAddressSnapshot: payload.address.trim(),
+          customerNameSnapshot: contactSnapshot.name,
+          phoneSnapshot: contactSnapshot.phone,
+          emailSnapshot: contactSnapshot.email,
+          deliveryAddressSnapshot: this.serializeAddressSnapshot(addressSnapshot),
           paymentMethod: payload.paymentMethod as never,
           paymentStatus: PrismaPaymentStatus.pending,
           deliveryMethod: payload.deliveryMethod as never,
-          status: initialStatus,
+          status: PrismaOrderStatus.new,
           notes: payload.notes?.trim() ?? '',
           subtotal,
           deliveryCost,
@@ -375,13 +428,14 @@ export class OrdersService {
           items: {
             create: payload.items.map((item) => {
               const product = products.get(item.productId)!;
+              const quantity = this.getItemQuantity(item);
               return {
                 id: createId('order-item'),
                 productId: product.id,
                 productName: product.name,
-                quantity: item.qty,
+                quantity,
                 unitPrice: product.price,
-                totalPrice: product.price * item.qty
+                totalPrice: product.price * quantity
               };
             })
           },
@@ -401,7 +455,7 @@ export class OrdersService {
               id: createId('delivery'),
               method: payload.deliveryMethod as never,
               company: payload.deliveryCompany?.trim() ?? null,
-              address: payload.address.trim(),
+              address: addressSnapshot.formatted,
               shippingCost: deliveryCost,
               status: PrismaDeliveryStatus.not_ready,
               createdAt,
@@ -421,7 +475,7 @@ export class OrdersService {
             create: {
               id: createId('status-history'),
               oldStatus: null,
-              newStatus: initialStatus,
+              newStatus: PrismaOrderStatus.new,
               changedByType: ActorType.system,
               comment: 'Order created',
               changedAt: createdAt
@@ -474,14 +528,16 @@ export class OrdersService {
     actor?: { changedById?: string }
   ): Promise<void> {
     const now = new Date();
-    const orderItems = order.items;
+    const packagingMeta = this.mergePackagingMeta(order.packaging?.comment ?? null, payload);
+    const dimensionValue = this.buildDimensionsValue(payload, order.packaging?.dimensions ?? null);
+    const carrier = payload.carrier?.trim() || payload.deliveryCompany?.trim() || order.delivery?.company || null;
 
     if (nextStatus === OrderStatus.Cancelled) {
       await this.releaseReservations(tx, order, `Order ${order.orderNumber} cancelled`, now);
       await this.applyPaymentStatusUpdate(
         tx,
         order,
-        PrismaPaymentStatus.cancelled,
+        order.paymentStatus === PrismaPaymentStatus.paid ? PrismaPaymentStatus.refunded : PrismaPaymentStatus.cancelled,
         {
           changedByType: ActorType.employee,
           changedById: actor?.changedById,
@@ -492,6 +548,16 @@ export class OrdersService {
       );
     }
 
+    if ([OrderStatus.Picking, OrderStatus.Packing].includes(nextStatus)) {
+      await tx.packagingDetail.update({
+        where: { orderId: order.id },
+        data: {
+          status: PrismaPackagingStatus.in_progress,
+          updatedAt: now
+        }
+      });
+    }
+
     if (nextStatus === OrderStatus.Packed) {
       await tx.packagingDetail.update({
         where: { orderId: order.id },
@@ -499,9 +565,28 @@ export class OrdersService {
           status: PrismaPackagingStatus.packed,
           fragile: payload.fragile ?? order.packaging?.fragile ?? false,
           packageType: payload.packageType ?? order.packaging?.packageType ?? null,
-          comment: payload.packagingComment ?? order.packaging?.comment ?? null,
+          dimensions: dimensionValue,
+          weightGrams: payload.weightGrams ?? order.packaging?.weightGrams ?? null,
+          comment: this.serializePackagingMeta(packagingMeta),
           packedAt: now,
           employeeId: actor?.changedById,
+          updatedAt: now
+        }
+      });
+    }
+
+    if (nextStatus === OrderStatus.ReadyForShipment) {
+      await tx.packagingDetail.update({
+        where: { orderId: order.id },
+        data: {
+          status: PrismaPackagingStatus.ready_for_shipment,
+          fragile: payload.fragile ?? order.packaging?.fragile ?? false,
+          packageType: payload.packageType ?? order.packaging?.packageType ?? null,
+          dimensions: dimensionValue,
+          weightGrams: payload.weightGrams ?? order.packaging?.weightGrams ?? null,
+          comment: this.serializePackagingMeta(packagingMeta),
+          packedAt: order.packaging?.packedAt ?? now,
+          employeeId: actor?.changedById ?? order.packaging?.employeeId ?? null,
           updatedAt: now
         }
       });
@@ -509,10 +594,31 @@ export class OrdersService {
       await tx.delivery.update({
         where: { orderId: order.id },
         data: {
+          company: carrier,
           status: PrismaDeliveryStatus.ready_for_shipment,
           updatedAt: now
         }
       });
+    }
+
+    if (nextStatus === OrderStatus.StockProblem) {
+      await tx.packagingDetail.update({
+        where: { orderId: order.id },
+        data: {
+          comment: this.serializePackagingMeta(packagingMeta),
+          updatedAt: now
+        }
+      });
+
+      await this.recordActivity(
+        tx,
+        'activity.orderStockProblem',
+        {
+          orderNumber: order.orderNumber,
+          issueType: payload.warehouseIssueType?.trim() || 'UNKNOWN'
+        },
+        now
+      );
     }
 
     if (nextStatus === OrderStatus.Shipped) {
@@ -520,7 +626,7 @@ export class OrdersService {
         throw ApiException.validation('Tracking number is required before shipping.', 'trackingNumber');
       }
 
-      for (const item of orderItems) {
+      for (const item of order.items) {
         const product = await tx.product.findUnique({ where: { id: item.productId } });
 
         if (!product || product.reservedQty < item.quantity || product.stockQty < item.quantity) {
@@ -552,8 +658,8 @@ export class OrdersService {
       await tx.delivery.update({
         where: { orderId: order.id },
         data: {
-          company: payload.deliveryCompany ?? order.delivery?.company ?? null,
-          trackingNumber: payload.trackingNumber,
+          company: carrier,
+          trackingNumber: payload.trackingNumber.trim(),
           status: PrismaDeliveryStatus.shipped,
           shippedAt: now,
           updatedAt: now
@@ -641,16 +747,22 @@ export class OrdersService {
       updatedAt: now
     };
 
-    if (paymentStatus === PrismaPaymentStatus.paid && order.status === PrismaOrderStatus.awaiting_payment) {
-      orderUpdateData.status = PrismaOrderStatus.paid;
-    }
+    const shouldCancelOrder =
+      paymentStatus === PrismaPaymentStatus.failed
+      || paymentStatus === PrismaPaymentStatus.cancelled
+      || paymentStatus === PrismaPaymentStatus.refunded;
+    const isTerminalOrderStatus =
+      order.status === PrismaOrderStatus.cancelled
+      || order.status === PrismaOrderStatus.shipped
+      || order.status === PrismaOrderStatus.delivered;
 
     if (
-      [PrismaPaymentStatus.failed, PrismaPaymentStatus.cancelled, PrismaPaymentStatus.refunded].includes(paymentStatus)
-      && order.status !== PrismaOrderStatus.cancelled
+      shouldCancelOrder
+      && !isTerminalOrderStatus
     ) {
       orderUpdateData.status = PrismaOrderStatus.cancelled;
       orderUpdateData.cancelledAt = now;
+
       if (!suppressReservationRelease) {
         await this.releaseReservations(tx, order, `Payment ${paymentStatus} for order ${order.orderNumber}`, now);
       }
@@ -745,6 +857,10 @@ export class OrdersService {
       if (product.status !== 'active') {
         throw ApiException.conflict('Only active products can be ordered.');
       }
+
+      if (this.getItemQuantity(item) < 1) {
+        throw ApiException.validation('Quantity must be greater than zero.', 'items');
+      }
     }
 
     return productMap;
@@ -754,10 +870,15 @@ export class OrdersService {
     const stockDemand = new Map<string, number>();
 
     for (const item of items) {
-      stockDemand.set(item.productId, (stockDemand.get(item.productId) ?? 0) + item.qty);
+      const quantity = this.getItemQuantity(item);
+      stockDemand.set(item.productId, (stockDemand.get(item.productId) ?? 0) + quantity);
     }
 
     return stockDemand;
+  }
+
+  private getItemQuantity(item: CheckoutItemInput) {
+    return item.quantity ?? item.qty ?? 0;
   }
 
   private resolveDeliveryCost(method: DeliveryMethod): number {
@@ -773,6 +894,186 @@ export class OrdersService {
       default:
         return 0;
     }
+  }
+
+  private validateDeliverySelection(payload: CreateCheckoutPayload) {
+    if (
+      payload.deliveryMethod === DeliveryMethod.DeliveryCompany
+      && !payload.deliveryCompany?.trim()
+    ) {
+      throw ApiException.validation('Delivery company is required for the selected delivery method.', 'deliveryCompany');
+    }
+  }
+
+  private buildContactSnapshot(payload: CreateCheckoutPayload): OrderContactSnapshot {
+    const firstName = payload.firstName.trim();
+    const lastName = payload.lastName.trim();
+    return {
+      firstName,
+      lastName,
+      name: `${firstName} ${lastName}`.trim(),
+      phone: payload.phone.trim(),
+      email: payload.email?.trim().toLowerCase() ?? null
+    };
+  }
+
+  private buildAddressSnapshot(payload: CreateCheckoutPayload): OrderAddressSnapshot {
+    const address = {
+      country: payload.country.trim(),
+      region: payload.region.trim(),
+      city: payload.city.trim(),
+      street: payload.street.trim(),
+      house: payload.house.trim(),
+      apartment: payload.apartment?.trim() || null,
+      postalCode: payload.postalCode.trim(),
+      formatted: ''
+    };
+
+    address.formatted = [
+      address.country,
+      address.region,
+      address.city,
+      `${address.street} ${address.house}`.trim(),
+      address.apartment ? `apt. ${address.apartment}` : null,
+      address.postalCode
+    ]
+      .filter(Boolean)
+      .join(', ');
+
+    return address;
+  }
+
+  private serializeAddressSnapshot(address: OrderAddressSnapshot) {
+    return JSON.stringify(address);
+  }
+
+  private parseAddressSnapshot(raw: string): OrderAddressSnapshot {
+    try {
+      const parsed = JSON.parse(raw) as Partial<OrderAddressSnapshot>;
+      if (parsed && typeof parsed === 'object' && typeof parsed.formatted === 'string') {
+        return {
+          country: parsed.country ?? '',
+          region: parsed.region ?? '',
+          city: parsed.city ?? '',
+          street: parsed.street ?? '',
+          house: parsed.house ?? '',
+          apartment: parsed.apartment ?? null,
+          postalCode: parsed.postalCode ?? '',
+          formatted: parsed.formatted
+        };
+      }
+    } catch {}
+
+    return {
+      country: '',
+      region: '',
+      city: '',
+      street: '',
+      house: '',
+      apartment: null,
+      postalCode: '',
+      formatted: raw
+    };
+  }
+
+  private parseContactSnapshot(order: OrderRecord): OrderContactSnapshot {
+    const name = order.customerNameSnapshot.trim();
+    const [firstName = name, ...rest] = name.split(' ').filter(Boolean);
+    return {
+      firstName,
+      lastName: rest.join(' '),
+      name,
+      phone: order.phoneSnapshot,
+      email: order.emailSnapshot
+    };
+  }
+
+  private parsePackagingMeta(raw: string | null): PackagingMeta {
+    if (!raw) {
+      return {
+        comment: null,
+        serialNumbers: null,
+        warehouseIssueType: null
+      };
+    }
+
+    try {
+      const parsed = JSON.parse(raw) as Partial<PackagingMeta>;
+      if (parsed && typeof parsed === 'object') {
+        return {
+          comment: parsed.comment ?? null,
+          serialNumbers: parsed.serialNumbers ?? null,
+          warehouseIssueType: parsed.warehouseIssueType ?? null
+        };
+      }
+    } catch {}
+
+    return {
+      comment: raw,
+      serialNumbers: null,
+      warehouseIssueType: null
+    };
+  }
+
+  private serializePackagingMeta(meta: PackagingMeta) {
+    return JSON.stringify(meta);
+  }
+
+  private mergePackagingMeta(raw: string | null, payload: UpdateOrderStatusDto): PackagingMeta {
+    const current = this.parsePackagingMeta(raw);
+    return {
+      comment: payload.packagingComment?.trim() || payload.comment?.trim() || current.comment,
+      serialNumbers: payload.serialNumbers?.trim() || current.serialNumbers,
+      warehouseIssueType: payload.warehouseIssueType?.trim() || current.warehouseIssueType
+    };
+  }
+
+  private buildDimensionsValue(payload: UpdateOrderStatusDto, current: string | null) {
+    if (
+      payload.lengthCm === undefined
+      && payload.widthCm === undefined
+      && payload.heightCm === undefined
+    ) {
+      return current;
+    }
+
+    const length = payload.lengthCm ?? 0;
+    const width = payload.widthCm ?? 0;
+    const height = payload.heightCm ?? 0;
+    return `${length}x${width}x${height}`;
+  }
+
+  private parseDimensions(dimensions: string | null) {
+    if (!dimensions) {
+      return {
+        lengthCm: null,
+        widthCm: null,
+        heightCm: null
+      };
+    }
+
+    const [length, width, height] = dimensions.split('x').map((value) => Number(value));
+    return {
+      lengthCm: Number.isFinite(length) ? length : null,
+      widthCm: Number.isFinite(width) ? width : null,
+      heightCm: Number.isFinite(height) ? height : null
+    };
+  }
+
+  private findWarehouseIssue(order: OrderRecord, packagingMeta: PackagingMeta) {
+    const issueType = packagingMeta.warehouseIssueType;
+    if (!issueType && order.status !== PrismaOrderStatus.stock_problem) {
+      return null;
+    }
+
+    const historyEntry = [...order.statusHistory]
+      .reverse()
+      .find((entry) => entry.newStatus === PrismaOrderStatus.stock_problem);
+
+    return {
+      type: issueType ?? 'UNKNOWN',
+      comment: historyEntry?.comment ?? packagingMeta.comment
+    };
   }
 
   private async allocateOrderNumber(tx: Prisma.TransactionClient): Promise<string> {
@@ -817,16 +1118,17 @@ export class OrdersService {
 
   private toWire(order: OrderRecord): OrderWire {
     const payment = order.payments[0] ?? null;
+    const addressSnapshot = this.parseAddressSnapshot(order.deliveryAddressSnapshot);
+    const contactSnapshot = this.parseContactSnapshot(order);
+    const packagingMeta = this.parsePackagingMeta(order.packaging?.comment ?? null);
+    const parsedDimensions = this.parseDimensions(order.packaging?.dimensions ?? null);
 
     return {
       id: order.id,
       orderNumber: order.orderNumber,
       customerId: order.customerId,
-      customer: {
-        name: order.customerNameSnapshot,
-        phone: order.phoneSnapshot,
-        email: order.emailSnapshot
-      },
+      customer: contactSnapshot,
+      address: addressSnapshot,
       items: order.items.map((item) => ({
         productId: item.productId,
         productName: item.productName,
@@ -853,6 +1155,7 @@ export class OrdersService {
             method: order.delivery.method,
             company: order.delivery.company,
             address: order.delivery.address,
+            addressSnapshot,
             trackingNumber: order.delivery.trackingNumber,
             shippingCost: order.delivery.shippingCost,
             status: order.delivery.status,
@@ -867,11 +1170,17 @@ export class OrdersService {
             packageType: order.packaging.packageType,
             dimensions: order.packaging.dimensions,
             weightGrams: order.packaging.weightGrams,
-            comment: order.packaging.comment,
+            lengthCm: parsedDimensions.lengthCm,
+            widthCm: parsedDimensions.widthCm,
+            heightCm: parsedDimensions.heightCm,
+            comment: packagingMeta.comment,
+            serialNumbers: packagingMeta.serialNumbers,
+            warehouseIssueType: packagingMeta.warehouseIssueType,
             packedAt: order.packaging.packedAt,
             employeeId: order.packaging.employeeId
           }
         : null,
+      warehouseIssue: this.findWarehouseIssue(order, packagingMeta),
       status: order.status,
       subtotal: order.subtotal,
       deliveryCost: order.deliveryCost,

@@ -1,12 +1,15 @@
 export enum OrderStatus {
   New = 'new',
-  AwaitingPayment = 'awaiting_payment',
-  Paid = 'paid',
   Confirmed = 'confirmed',
-  Processing = 'processing',
+  SentToWarehouse = 'sent_to_warehouse',
+  Picking = 'picking',
+  Picked = 'picked',
+  Packing = 'packing',
   Packed = 'packed',
+  ReadyForShipment = 'ready_for_shipment',
   Shipped = 'shipped',
   Delivered = 'delivered',
   Cancelled = 'cancelled',
+  StockProblem = 'stock_problem',
   Returned = 'returned'
 }

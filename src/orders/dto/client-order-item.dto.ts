@@ -1,18 +1,27 @@
 import { Type } from 'class-transformer';
-import { IsInt, IsString, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, Min, ValidateIf } from 'class-validator';
 
 export class ClientOrderItemDto {
   @IsString()
   productId!: string;
 
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  qty!: number;
+  @ValidateIf((_, value) => value !== undefined)
+  qty?: number;
 
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  unitPrice!: number;
+  @ValidateIf((_, value) => value !== undefined)
+  quantity?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  unitPrice?: number;
 }
-

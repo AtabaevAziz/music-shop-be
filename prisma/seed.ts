@@ -71,9 +71,15 @@ async function clearDatabase(prisma: SeedClient): Promise<void> {
 }
 
 async function deleteManyIfExists(prisma: SeedClient, delegateName: string): Promise<void> {
-  const delegate = (prisma as Record<string, { deleteMany?: () => Promise<unknown> }>)[delegateName];
-  if (typeof delegate?.deleteMany === 'function') {
-    await delegate.deleteMany();
+  const delegate = (prisma as unknown as Record<string, unknown>)[delegateName];
+
+  if (
+    delegate
+    && typeof delegate === 'object'
+    && 'deleteMany' in delegate
+    && typeof (delegate as { deleteMany?: unknown }).deleteMany === 'function'
+  ) {
+    await (delegate as { deleteMany: () => Promise<unknown> }).deleteMany();
   }
 }
 

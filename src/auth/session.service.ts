@@ -73,7 +73,8 @@ export class SessionService {
       sessionId,
       session: {
         role: employee.role as Role,
-        name: employee.name
+        name: employee.name,
+        employeeId: employee.id
       }
     };
   }
@@ -147,7 +148,8 @@ export class SessionService {
 
       return {
         role: sessionRecord.employee.role as Role,
-        name: sessionRecord.employee.name
+        name: sessionRecord.employee.name,
+        employeeId: sessionRecord.employee.id
       };
     }
 

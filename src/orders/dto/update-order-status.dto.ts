@@ -1,4 +1,4 @@
-import { IsBoolean, IsEnum, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsBoolean, IsEnum, IsInt, IsOptional, IsString, MinLength } from 'class-validator';
 import { OrderStatus } from '../../common/enums/order-status.enum';
 
 export class UpdateOrderStatusDto {
@@ -8,6 +8,10 @@ export class UpdateOrderStatusDto {
   @IsOptional()
   @IsString()
   comment?: string;
+
+  @IsOptional()
+  @IsString()
+  carrier?: string;
 
   @IsOptional()
   @IsString()
@@ -25,6 +29,30 @@ export class UpdateOrderStatusDto {
   @IsOptional()
   @IsString()
   packageType?: string;
+
+  @IsOptional()
+  @IsInt()
+  weightGrams?: number;
+
+  @IsOptional()
+  @IsInt()
+  lengthCm?: number;
+
+  @IsOptional()
+  @IsInt()
+  widthCm?: number;
+
+  @IsOptional()
+  @IsInt()
+  heightCm?: number;
+
+  @IsOptional()
+  @IsString()
+  serialNumbers?: string;
+
+  @IsOptional()
+  @IsString()
+  warehouseIssueType?: string;
 
   @IsOptional()
   @IsString()

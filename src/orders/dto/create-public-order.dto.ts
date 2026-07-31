@@ -16,7 +16,11 @@ import { ClientOrderItemDto } from './client-order-item.dto';
 export class CreatePublicOrderDto {
   @IsString()
   @MinLength(2)
-  customerName!: string;
+  firstName!: string;
+
+  @IsString()
+  @MinLength(2)
+  lastName!: string;
 
   @IsString()
   @MinLength(6)
@@ -27,8 +31,32 @@ export class CreatePublicOrderDto {
   email?: string;
 
   @IsString()
-  @MinLength(4)
-  address!: string;
+  @MinLength(2)
+  country!: string;
+
+  @IsString()
+  @MinLength(2)
+  region!: string;
+
+  @IsString()
+  @MinLength(2)
+  city!: string;
+
+  @IsString()
+  @MinLength(2)
+  street!: string;
+
+  @IsString()
+  @MinLength(1)
+  house!: string;
+
+  @IsOptional()
+  @IsString()
+  apartment?: string;
+
+  @IsString()
+  @MinLength(3)
+  postalCode!: string;
 
   @IsEnum(PaymentMethod)
   paymentMethod!: PaymentMethod;
