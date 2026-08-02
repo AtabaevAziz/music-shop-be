@@ -15,6 +15,7 @@ type RepairWire = {
   issue: string;
   status: string;
   notes: string;
+  photoUrl?: string;
   estimatedCost?: number;
   assignedMasterName?: string;
   receivedAt?: Date;
@@ -23,7 +24,7 @@ type RepairWire = {
 };
 
 type RepairCreatePayload = Pick<CreateRepairDto, 'instrumentName' | 'brand' | 'issue' | 'notes'> &
-  Partial<Pick<CreateRepairDto, 'estimatedCost' | 'assignedMasterName' | 'receivedAt'>>;
+  Partial<Pick<CreateRepairDto, 'estimatedCost' | 'assignedMasterName' | 'receivedAt' | 'photoUrl'>>;
 
 @Injectable()
 export class RepairsService {
@@ -58,7 +59,7 @@ export class RepairsService {
           brand: payload.brand.trim(),
           issue: payload.issue.trim(),
           status: payload.status as PrismaRepairStatus,
-          notes: payload.notes.trim(),
+          notes: this.serializeRepairNotes(payload.notes, payload.photoUrl),
           estimatedCost: payload.estimatedCost,
           assignedMasterName: payload.assignedMasterName?.trim(),
           receivedAt: this.parseReceivedAt(payload.receivedAt)
@@ -99,7 +100,7 @@ export class RepairsService {
             brand: payload.brand.trim(),
             issue: payload.issue.trim(),
             status: PrismaRepairStatus.new,
-            notes: payload.notes.trim(),
+            notes: this.serializeRepairNotes(payload.notes, payload.photoUrl),
             estimatedCost: payload.estimatedCost,
             assignedMasterName: payload.assignedMasterName?.trim(),
             receivedAt: this.parseReceivedAt(payload.receivedAt)
@@ -135,6 +136,7 @@ export class RepairsService {
   }
 
   private toWire(repair: RepairRequest): RepairWire {
+    const parsedNotes = this.parseRepairNotes(repair.notes);
     return {
       id: repair.id,
       customerId: repair.customerId,
@@ -142,7 +144,8 @@ export class RepairsService {
       brand: repair.brand,
       issue: repair.issue,
       status: repair.status,
-      notes: repair.notes,
+      notes: parsedNotes.notes,
+      photoUrl: parsedNotes.photoUrl ?? undefined,
       estimatedCost: repair.estimatedCost ?? undefined,
       assignedMasterName: repair.assignedMasterName ?? undefined,
       receivedAt: repair.receivedAt ?? undefined,
@@ -161,6 +164,37 @@ export class RepairsService {
 
   private parseReceivedAt(receivedAt?: string): Date | undefined {
     return receivedAt ? new Date(receivedAt) : undefined;
+  }
+
+  private serializeRepairNotes(notes: string, photoUrl?: string | null): string {
+    const normalizedNotes = notes.trim();
+    const normalizedPhotoUrl = photoUrl?.trim();
+
+    if (!normalizedPhotoUrl) {
+      return normalizedNotes;
+    }
+
+    return `${normalizedNotes}\n\nPhoto URL: ${normalizedPhotoUrl}`;
+  }
+
+  private parseRepairNotes(notes: string): { notes: string; photoUrl: string | null } {
+    const lines = notes.split('\n');
+    const keptLines: string[] = [];
+    let photoUrl: string | null = null;
+
+    for (const line of lines) {
+      if (line.startsWith('Photo URL: ')) {
+        photoUrl = line.slice('Photo URL: '.length).trim() || null;
+        continue;
+      }
+
+      keptLines.push(line);
+    }
+
+    return {
+      notes: keptLines.join('\n').trim(),
+      photoUrl
+    };
   }
 
   private rethrowNotFound(error: unknown, message: string): never | void {

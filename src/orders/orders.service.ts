@@ -71,6 +71,15 @@ type PackagingMeta = {
   warehouseIssueType: string | null;
 };
 
+type OrderStage =
+  | 'intake'
+  | 'payment'
+  | 'warehouse'
+  | 'packing'
+  | 'shipment'
+  | 'completed'
+  | 'exception';
+
 type CreateCheckoutPayload = {
   customerId: string;
   firstName: string;
@@ -95,6 +104,8 @@ type OrderWire = {
   id: string;
   orderNumber: string;
   customerId: string;
+  stage: OrderStage;
+  availableTransitions: string[];
   customer: OrderContactSnapshot;
   address: OrderAddressSnapshot;
   items: Array<{
@@ -158,6 +169,14 @@ type OrderWire = {
     changedById: string | null;
     comment: string | null;
     changedAt: Date;
+  }>;
+  timeline: Array<{
+    type: 'status' | 'payment' | 'delivery';
+    status: string;
+    happenedAt: Date;
+    comment: string | null;
+    actorType: string | null;
+    actorId: string | null;
   }>;
   paymentRedirectUrl: string | null;
   createdAt: Date;
@@ -1116,17 +1135,105 @@ export class OrdersService {
     });
   }
 
+  private getOrderStage(order: OrderRecord): OrderStage {
+    if (
+      order.status === PrismaOrderStatus.cancelled
+      || order.status === PrismaOrderStatus.returned
+      || order.status === PrismaOrderStatus.stock_problem
+      || order.paymentStatus === PrismaPaymentStatus.failed
+      || order.paymentStatus === PrismaPaymentStatus.cancelled
+      || order.paymentStatus === PrismaPaymentStatus.refunded
+    ) {
+      return 'exception';
+    }
+
+    switch (order.status) {
+      case PrismaOrderStatus.new:
+        return 'intake';
+      case PrismaOrderStatus.confirmed:
+        return 'payment';
+      case PrismaOrderStatus.sent_to_warehouse:
+      case PrismaOrderStatus.picking:
+      case PrismaOrderStatus.picked:
+        return 'warehouse';
+      case PrismaOrderStatus.packing:
+      case PrismaOrderStatus.packed:
+        return 'packing';
+      case PrismaOrderStatus.ready_for_shipment:
+      case PrismaOrderStatus.shipped:
+        return 'shipment';
+      case PrismaOrderStatus.delivered:
+        return 'completed';
+      default:
+        return 'intake';
+    }
+  }
+
+  private buildTimeline(order: OrderRecord): OrderWire['timeline'] {
+    const timeline: OrderWire['timeline'] = order.statusHistory.map((entry) => ({
+      type: 'status',
+      status: entry.newStatus,
+      happenedAt: entry.changedAt,
+      comment: entry.comment ?? null,
+      actorType: entry.changedByType,
+      actorId: entry.changedById
+    }));
+
+    const payment = order.payments[0];
+    if (payment?.updatedAt) {
+      timeline.push({
+        type: 'payment',
+        status: payment.status,
+        happenedAt: payment.paidAt ?? payment.updatedAt,
+        comment: payment.transactionId ? `Transaction ${payment.transactionId}` : null,
+        actorType: null,
+        actorId: null
+      });
+    }
+
+    if (order.delivery?.shippedAt) {
+      timeline.push({
+        type: 'delivery',
+        status: PrismaDeliveryStatus.shipped,
+        happenedAt: order.delivery.shippedAt,
+        comment: order.delivery.trackingNumber
+          ? `Tracking ${order.delivery.trackingNumber}`
+          : null,
+        actorType: null,
+        actorId: null
+      });
+    }
+
+    if (order.delivery?.deliveredAt) {
+      timeline.push({
+        type: 'delivery',
+        status: PrismaDeliveryStatus.delivered,
+        happenedAt: order.delivery.deliveredAt,
+        comment: order.delivery.company ? `Carrier ${order.delivery.company}` : null,
+        actorType: null,
+        actorId: null
+      });
+    }
+
+    return timeline.sort(
+      (left, right) => left.happenedAt.getTime() - right.happenedAt.getTime()
+    );
+  }
+
   private toWire(order: OrderRecord): OrderWire {
     const payment = order.payments[0] ?? null;
     const addressSnapshot = this.parseAddressSnapshot(order.deliveryAddressSnapshot);
     const contactSnapshot = this.parseContactSnapshot(order);
     const packagingMeta = this.parsePackagingMeta(order.packaging?.comment ?? null);
     const parsedDimensions = this.parseDimensions(order.packaging?.dimensions ?? null);
+    const availableTransitions = ORDER_STATUS_TRANSITIONS[order.status as OrderStatus] ?? [];
 
     return {
       id: order.id,
       orderNumber: order.orderNumber,
       customerId: order.customerId,
+      stage: this.getOrderStage(order),
+      availableTransitions,
       customer: contactSnapshot,
       address: addressSnapshot,
       items: order.items.map((item) => ({
@@ -1194,6 +1301,7 @@ export class OrdersService {
         comment: entry.comment,
         changedAt: entry.changedAt
       })),
+      timeline: this.buildTimeline(order),
       paymentRedirectUrl:
         order.paymentMethod === 'online' && order.paymentStatus === PrismaPaymentStatus.pending
           ? `/payments/stub/${order.id}`

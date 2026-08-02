@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsDateString, IsEnum, IsInt, IsOptional, IsString, Min, MinLength } from 'class-validator';
+import { IsDateString, IsEnum, IsInt, IsOptional, IsString, IsUrl, Min, MinLength } from 'class-validator';
 import { RepairStatus } from '../../common/enums/repair-status.enum';
 
 export class UpdateRepairDto {
@@ -39,4 +39,8 @@ export class UpdateRepairDto {
   @IsOptional()
   @IsDateString()
   receivedAt?: string;
+
+  @IsOptional()
+  @IsUrl()
+  photoUrl?: string;
 }

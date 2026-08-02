@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsDateString, IsInt, IsOptional, IsString, Min, MinLength } from 'class-validator';
+import { IsDateString, IsInt, IsOptional, IsString, IsUrl, Min, MinLength } from 'class-validator';
 
 export class CreateRepairDto {
   @IsString()
@@ -35,4 +35,8 @@ export class CreateRepairDto {
   @IsOptional()
   @IsDateString()
   receivedAt?: string;
+
+  @IsOptional()
+  @IsUrl()
+  photoUrl?: string;
 }

@@ -24,7 +24,8 @@ export class PublicRepairsController {
         instrumentName: payload.instrumentType,
         brand: payload.instrumentModel,
         issue: payload.issueDescription,
-        notes: this.formatPublicRepairNotes(payload)
+        notes: this.formatPublicRepairNotes(payload),
+        photoUrl: payload.photoUrl
       }
     );
 
@@ -38,8 +39,7 @@ export class PublicRepairsController {
       `Phone: ${payload.phone.trim()}`,
       payload.email?.trim() ? `Email: ${payload.email.trim().toLowerCase()}` : null,
       `Instrument type: ${payload.instrumentType.trim()}`,
-      `Model: ${payload.instrumentModel.trim()}`,
-      payload.photoUrl?.trim() ? `Photo: ${payload.photoUrl.trim()}` : null
+      `Model: ${payload.instrumentModel.trim()}`
     ].filter(Boolean);
 
     return lines.join('\n');

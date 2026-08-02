@@ -1,4 +1,4 @@
-import { IsString, MinLength } from 'class-validator';
+import { IsOptional, IsString, IsUrl, MinLength } from 'class-validator';
 
 export class CreateClientRepairDto {
   @IsString()
@@ -16,5 +16,8 @@ export class CreateClientRepairDto {
   @IsString()
   @MinLength(4)
   notes!: string;
-}
 
+  @IsOptional()
+  @IsUrl()
+  photoUrl?: string;
+}
