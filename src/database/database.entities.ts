@@ -1,0 +1,35 @@
+import {
+  ActivityEntity,
+  BusinessSettingsEntity,
+  CategoryEntity,
+  CustomerEntity,
+  DeliveryEntity,
+  EmployeeEntity,
+  InventoryMovementEntity,
+  OrderEntity,
+  OrderItemEntity,
+  OrderStatusHistoryEntity,
+  PackagingDetailEntity,
+  PaymentEntity,
+  ProductEntity,
+  RepairRequestEntity,
+  SessionEntity
+} from './entities';
+
+export const DATABASE_ENTITIES = [
+  EmployeeEntity,
+  CustomerEntity,
+  SessionEntity,
+  CategoryEntity,
+  ProductEntity,
+  InventoryMovementEntity,
+  OrderEntity,
+  OrderItemEntity,
+  PaymentEntity,
+  DeliveryEntity,
+  PackagingDetailEntity,
+  OrderStatusHistoryEntity,
+  RepairRequestEntity,
+  ActivityEntity,
+  BusinessSettingsEntity
+] as const;
