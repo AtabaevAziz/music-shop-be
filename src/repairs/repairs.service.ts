@@ -1,9 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { RepairRequest, RepairStatus as PrismaRepairStatus } from '@prisma/client';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Like, Repository } from 'typeorm';
 import { ApiException } from '../common/exceptions/api.exception';
+import { RepairStatus } from '../common/enums/repair-status.enum';
 import { createId } from '../common/utils/id.util';
 import { getNextSequentialPrefixedId, isUniqueConstraintError } from '../common/utils/sequential-id.util';
-import { PrismaService } from '../database/prisma.service';
+import { CustomerEntity, RepairRequestEntity, ActivityEntity } from '../database/entities';
 import { CreateRepairDto } from './dto/create-repair.dto';
 import { UpdateRepairDto } from './dto/update-repair.dto';
 
@@ -28,15 +30,22 @@ type RepairCreatePayload = Pick<CreateRepairDto, 'instrumentName' | 'brand' | 'i
 
 @Injectable()
 export class RepairsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    @InjectRepository(RepairRequestEntity)
+    private readonly repairRepository: Repository<RepairRequestEntity>,
+    @InjectRepository(CustomerEntity)
+    private readonly customerRepository: Repository<CustomerEntity>,
+    @InjectRepository(ActivityEntity)
+    private readonly activityRepository: Repository<ActivityEntity>
+  ) {}
 
   async listRepairs(filters: { status?: string; customerId?: string; limit?: number } = {}): Promise<RepairWire[]> {
-    const items = await this.prisma.repairRequest.findMany({
+    const items = await this.repairRepository.find({
       where: {
-        ...(filters.status ? { status: filters.status as never } : {}),
+        ...(filters.status ? { status: filters.status as RepairStatus } : {}),
         ...(filters.customerId ? { customerId: filters.customerId } : {})
       },
-      orderBy: [{ createdAt: 'desc' }],
+      order: { createdAt: 'DESC' },
       ...(filters.limit ? { take: filters.limit } : {})
     });
 
@@ -50,27 +59,26 @@ export class RepairsService {
   async updateRepair(id: string, payload: UpdateRepairDto): Promise<RepairWire> {
     await this.assertCustomerExists(payload.customerId);
 
-    try {
-      const repair = await this.prisma.repairRequest.update({
-        where: { id },
-        data: {
-          customerId: payload.customerId,
-          instrumentName: payload.instrumentName.trim(),
-          brand: payload.brand.trim(),
-          issue: payload.issue.trim(),
-          status: payload.status as PrismaRepairStatus,
-          notes: this.serializeRepairNotes(payload.notes, payload.photoUrl),
-          estimatedCost: payload.estimatedCost,
-          assignedMasterName: payload.assignedMasterName?.trim(),
-          receivedAt: this.parseReceivedAt(payload.receivedAt)
-        }
-      });
+    const existing = await this.repairRepository.findOneBy({ id });
 
-      return this.toWire(repair);
-    } catch (error: unknown) {
-      this.rethrowNotFound(error, 'Repair request was not found.');
-      throw error;
+    if (!existing) {
+      throw ApiException.notFound('Repair request was not found.');
     }
+
+    const repair = await this.repairRepository.save({
+      ...existing,
+      customerId: payload.customerId,
+      instrumentName: payload.instrumentName.trim(),
+      brand: payload.brand.trim(),
+      issue: payload.issue.trim(),
+      status: payload.status,
+      notes: this.serializeRepairNotes(payload.notes, payload.photoUrl),
+      estimatedCost: payload.estimatedCost,
+      assignedMasterName: payload.assignedMasterName?.trim() ?? null,
+      receivedAt: this.parseReceivedAt(payload.receivedAt) ?? null
+    });
+
+    return this.toWire(repair);
   }
 
   async createRepairForCustomer(
@@ -78,11 +86,11 @@ export class RepairsService {
     payload: RepairCreatePayload
   ): Promise<RepairWire> {
     await this.assertCustomerExists(customerId);
-    let repair: RepairRequest | null = null;
+    let repair: RepairRequestEntity | null = null;
 
     for (let attempt = 0; attempt < 5; attempt += 1) {
-      const existingRepairIds = await this.prisma.repairRequest.findMany({
-        where: { id: { startsWith: 'REP-' } },
+      const existingRepairIds = await this.repairRepository.find({
+        where: { id: Like('REP-%') },
         select: { id: true }
       });
       const repairId = getNextSequentialPrefixedId(
@@ -92,20 +100,20 @@ export class RepairsService {
       );
 
       try {
-        repair = await this.prisma.repairRequest.create({
-          data: {
+        repair = await this.repairRepository.save(
+          this.repairRepository.create({
             id: repairId,
             customerId,
             instrumentName: payload.instrumentName.trim(),
             brand: payload.brand.trim(),
             issue: payload.issue.trim(),
-            status: PrismaRepairStatus.new,
+            status: RepairStatus.New,
             notes: this.serializeRepairNotes(payload.notes, payload.photoUrl),
             estimatedCost: payload.estimatedCost,
-            assignedMasterName: payload.assignedMasterName?.trim(),
-            receivedAt: this.parseReceivedAt(payload.receivedAt)
-          }
-        });
+            assignedMasterName: payload.assignedMasterName?.trim() ?? null,
+            receivedAt: this.parseReceivedAt(payload.receivedAt) ?? null
+          })
+        );
         break;
       } catch (error: unknown) {
         if (isUniqueConstraintError(error)) {
@@ -120,8 +128,8 @@ export class RepairsService {
       throw ApiException.conflict('Could not allocate a new repair number. Please retry.');
     }
 
-    await this.prisma.activity.create({
-      data: {
+    await this.activityRepository.save(
+      this.activityRepository.create({
         id: createId('activity'),
         title: 'activity.repairCreated',
         messageKey: 'activity.repairCreated',
@@ -129,13 +137,13 @@ export class RepairsService {
           repairId: repair.id,
           customerId
         }
-      }
-    });
+      })
+    );
 
     return this.toWire(repair);
   }
 
-  private toWire(repair: RepairRequest): RepairWire {
+  private toWire(repair: RepairRequestEntity): RepairWire {
     const parsedNotes = this.parseRepairNotes(repair.notes);
     return {
       id: repair.id,
@@ -155,7 +163,7 @@ export class RepairsService {
   }
 
   private async assertCustomerExists(customerId: string): Promise<void> {
-    const customer = await this.prisma.customer.findUnique({ where: { id: customerId } });
+    const customer = await this.customerRepository.findOneBy({ id: customerId });
 
     if (!customer) {
       throw ApiException.validation('Customer must exist.', 'customerId');
@@ -195,16 +203,5 @@ export class RepairsService {
       notes: keptLines.join('\n').trim(),
       photoUrl
     };
-  }
-
-  private rethrowNotFound(error: unknown, message: string): never | void {
-    if (
-      typeof error === 'object' &&
-      error !== null &&
-      'code' in error &&
-      error.code === 'P2025'
-    ) {
-      throw ApiException.notFound(message);
-    }
   }
 }

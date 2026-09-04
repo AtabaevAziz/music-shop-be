@@ -1,10 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
-import { Customer, Prisma } from '@prisma/client';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { CustomerTier } from '../common/enums/customer-tier.enum';
 import { ApiException } from '../common/exceptions/api.exception';
 import { createId } from '../common/utils/id.util';
-import { PrismaService } from '../database/prisma.service';
+import { CustomerEntity } from '../database/entities';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 
@@ -22,35 +23,34 @@ type CustomerWire = {
   registeredAt: Date;
 };
 
-type CustomerWithCounts = Prisma.CustomerGetPayload<{
-  include: {
-    _count: {
-      select: {
-        orders: true;
-        repairs: true;
-      };
-    };
-  };
-}>;
+type CustomerWithCounts = CustomerEntity & {
+  ordersCount: number;
+  repairsCount: number;
+};
 
 @Injectable()
 export class CustomersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    @InjectRepository(CustomerEntity)
+    private readonly customerRepository: Repository<CustomerEntity>
+  ) {}
 
   async listCustomers(): Promise<CustomerWire[]> {
-    const customers = await this.prisma.customer.findMany({
-      include: {
-        _count: {
-          select: {
-            orders: true,
-            repairs: true
-          }
-        }
+    const customers = await this.customerRepository.find({
+      relations: {
+        orders: true,
+        repairs: true
       },
-      orderBy: [{ name: 'asc' }]
+      order: { name: 'ASC' }
     });
 
-    return customers.map((customer) => this.toWire(customer));
+    return customers.map((customer) =>
+      this.toWire({
+        ...customer,
+        ordersCount: customer.orders.length,
+        repairsCount: customer.repairs.length
+      })
+    );
   }
 
   async getCustomerById(id: string): Promise<CustomerWire> {
@@ -63,8 +63,8 @@ export class CustomersService {
     return this.toWire(customer);
   }
 
-  async getActiveCustomerById(id: string): Promise<Customer> {
-    const customer = await this.prisma.customer.findUnique({ where: { id } });
+  async getActiveCustomerById(id: string): Promise<CustomerEntity> {
+    const customer = await this.customerRepository.findOneBy({ id });
 
     if (!customer) {
       throw ApiException.notFound('Customer was not found.');
@@ -80,19 +80,19 @@ export class CustomersService {
   async createCustomer(payload: CreateCustomerDto): Promise<CustomerWire> {
     await this.assertUniqueEmail(payload.email);
 
-    const customer = await this.prisma.customer.create({
-      data: {
+    const customer = await this.customerRepository.save(
+      this.customerRepository.create({
         id: createId('customer'),
         name: payload.name.trim(),
         fullName: payload.fullName?.trim(),
         phone: payload.phone.trim(),
         email: payload.email.trim().toLowerCase(),
-        tier: payload.tier as never,
+        tier: payload.tier,
         status: payload.status.trim(),
         notes: payload.notes.trim(),
         passwordHash: await bcrypt.hash(payload.email.trim().toLowerCase(), 10)
-      }
-    });
+      })
+    );
 
     const createdCustomer = await this.findCustomerWithCounts(customer.id);
 
@@ -107,49 +107,41 @@ export class CustomersService {
     name: string;
     phone: string;
     email?: string;
-  }): Promise<Customer> {
+  }): Promise<CustomerEntity> {
     const normalizedName = payload.name.trim();
     const normalizedPhone = payload.phone.trim();
     const normalizedEmail =
       payload.email?.trim().toLowerCase() || this.buildGuestEmail(normalizedPhone);
 
-    const customerByEmail = await this.prisma.customer.findUnique({
-      where: { email: normalizedEmail }
-    });
+    const customerByEmail = await this.customerRepository.findOneBy({ email: normalizedEmail });
 
     if (customerByEmail) {
-      return this.prisma.customer.update({
-        where: { id: customerByEmail.id },
-        data: {
-          name: normalizedName,
-          fullName: normalizedName,
-          phone: normalizedPhone,
-          status: 'active'
-        }
+      return this.customerRepository.save({
+        ...customerByEmail,
+        name: normalizedName,
+        fullName: normalizedName,
+        phone: normalizedPhone,
+        status: 'active'
       });
     }
 
-    const customerByPhone = await this.prisma.customer.findFirst({
+    const customerByPhone = await this.customerRepository.findOne({
       where: { phone: normalizedPhone },
-      orderBy: [{ createdAt: 'desc' }]
+      order: { createdAt: 'DESC' }
     });
 
     if (customerByPhone) {
-      return this.prisma.customer.update({
-        where: { id: customerByPhone.id },
-        data: {
-          name: normalizedName,
-          fullName: customerByPhone.fullName || normalizedName,
-          ...(payload.email?.trim()
-            ? { email: normalizedEmail }
-            : {}),
-          status: 'active'
-        }
+      return this.customerRepository.save({
+        ...customerByPhone,
+        name: normalizedName,
+        fullName: customerByPhone.fullName || normalizedName,
+        email: payload.email?.trim() ? normalizedEmail : customerByPhone.email,
+        status: 'active'
       });
     }
 
-    return this.prisma.customer.create({
-      data: {
+    return this.customerRepository.save(
+      this.customerRepository.create({
         id: createId('customer'),
         name: normalizedName,
         fullName: normalizedName,
@@ -159,12 +151,12 @@ export class CustomersService {
         status: 'active',
         notes: 'Created from public storefront flow',
         passwordHash: await bcrypt.hash(normalizedEmail, 10)
-      }
-    });
+      })
+    );
   }
 
   async updateCustomer(id: string, payload: UpdateCustomerDto): Promise<CustomerWire> {
-    const existing = await this.prisma.customer.findUnique({ where: { id } });
+    const existing = await this.customerRepository.findOneBy({ id });
 
     if (!existing) {
       throw ApiException.notFound('Customer was not found.');
@@ -175,20 +167,19 @@ export class CustomersService {
     }
 
     const nextEmail = payload.email?.trim().toLowerCase();
-    const customer = await this.prisma.customer.update({
-      where: { id },
-      data: {
-        name: payload.name?.trim(),
-        fullName: payload.fullName?.trim(),
-        phone: payload.phone?.trim(),
-        email: nextEmail,
-        tier: payload.tier as never,
-        status: payload.status?.trim(),
-        notes: payload.notes?.trim(),
-        ...(nextEmail && nextEmail !== existing.email
-          ? { passwordHash: await bcrypt.hash(nextEmail, 10) }
-          : {})
-      }
+    const customer = await this.customerRepository.save({
+      ...existing,
+      name: payload.name?.trim() ?? existing.name,
+      fullName: payload.fullName?.trim() ?? existing.fullName,
+      phone: payload.phone?.trim() ?? existing.phone,
+      email: nextEmail ?? existing.email,
+      tier: payload.tier ?? existing.tier,
+      status: payload.status?.trim() ?? existing.status,
+      notes: payload.notes?.trim() ?? existing.notes,
+      passwordHash:
+        nextEmail && nextEmail !== existing.email
+          ? await bcrypt.hash(nextEmail, 10)
+          : existing.passwordHash
     });
 
     const updatedCustomer = await this.findCustomerWithCounts(customer.id);
@@ -201,11 +192,11 @@ export class CustomersService {
   }
 
   async deleteCustomer(id: string): Promise<void> {
-    const existing = await this.prisma.customer.findUnique({
+    const existing = await this.customerRepository.findOne({
       where: { id },
-      include: {
-        orders: { select: { id: true }, take: 1 },
-        repairs: { select: { id: true }, take: 1 }
+      relations: {
+        orders: true,
+        repairs: true
       }
     });
 
@@ -217,14 +208,12 @@ export class CustomersService {
       throw ApiException.conflict('Customer cannot be deleted while linked orders or repairs exist.');
     }
 
-    await this.prisma.customer.delete({ where: { id } });
+    await this.customerRepository.delete({ id });
   }
 
   private async assertUniqueEmail(email: string, customerId?: string): Promise<void> {
     const normalizedEmail = email.trim().toLowerCase();
-    const existing = await this.prisma.customer.findUnique({
-      where: { email: normalizedEmail }
-    });
+    const existing = await this.customerRepository.findOneBy({ email: normalizedEmail });
 
     if (existing && existing.id !== customerId) {
       throw ApiException.conflict('Customer email must be unique.', 'email');
@@ -232,23 +221,26 @@ export class CustomersService {
   }
 
   private findCustomerWithCounts(id: string): Promise<CustomerWithCounts | null> {
-    return this.prisma.customer.findUnique({
+    const customer = await this.customerRepository.findOne({
       where: { id },
-      include: {
-        _count: {
-          select: {
-            orders: true,
-            repairs: true
-          }
-        }
+      relations: {
+        orders: true,
+        repairs: true
       }
     });
+
+    if (!customer) {
+      return null;
+    }
+
+    return {
+      ...customer,
+      ordersCount: customer.orders.length,
+      repairsCount: customer.repairs.length
+    };
   }
 
-  private toWire(customer: CustomerWithCounts | Customer): CustomerWire {
-    const ordersCount = '_count' in customer ? customer._count.orders : 0;
-    const repairsCount = '_count' in customer ? customer._count.repairs : 0;
-
+  private toWire(customer: CustomerWithCounts | CustomerEntity): CustomerWire {
     return {
       id: customer.id,
       name: customer.name,
@@ -258,8 +250,8 @@ export class CustomersService {
       tier: customer.tier,
       status: customer.status,
       notes: customer.notes,
-      ordersCount,
-      repairsCount,
+      ordersCount: 'ordersCount' in customer ? customer.ordersCount : 0,
+      repairsCount: 'repairsCount' in customer ? customer.repairsCount : 0,
       registeredAt: customer.createdAt
     };
   }

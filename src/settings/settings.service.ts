@@ -1,11 +1,16 @@
 import { Injectable } from '@nestjs/common';
-import { ProductStatus as PrismaProductStatus } from '@prisma/client';
-import { PrismaService } from '../database/prisma.service';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { ProductStatus } from '../common/enums/product-status.enum';
+import { BusinessSettingsEntity } from '../database/entities';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
 
 @Injectable()
 export class SettingsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    @InjectRepository(BusinessSettingsEntity)
+    private readonly settingsRepository: Repository<BusinessSettingsEntity>
+  ) {}
 
   async getSettings(): Promise<{
     currency: string;
@@ -13,17 +18,7 @@ export class SettingsService {
     defaultProductStatus: string;
     defaultMarkupPercent: number;
   }> {
-    const settings = await this.prisma.businessSettings.upsert({
-      where: { id: 'business-settings' },
-      update: {},
-      create: {
-        id: 'business-settings',
-        currency: 'UZS',
-        lowStockThreshold: 3,
-        defaultProductStatus: PrismaProductStatus.draft,
-        defaultMarkupPercent: 28
-      }
-    });
+    const settings = await this.ensureSettings();
 
     return {
       currency: settings.currency,
@@ -41,21 +36,13 @@ export class SettingsService {
   }> {
     const normalizedCurrency = payload.currency.trim().toUpperCase();
 
-    const settings = await this.prisma.businessSettings.upsert({
-      where: { id: 'business-settings' },
-      update: {
-        currency: normalizedCurrency,
-        lowStockThreshold: payload.lowStockThreshold,
-        defaultProductStatus: payload.defaultProductStatus as never,
-        defaultMarkupPercent: payload.defaultMarkupPercent
-      },
-      create: {
-        id: 'business-settings',
-        currency: normalizedCurrency,
-        lowStockThreshold: payload.lowStockThreshold,
-        defaultProductStatus: payload.defaultProductStatus as never,
-        defaultMarkupPercent: payload.defaultMarkupPercent
-      }
+    const current = await this.ensureSettings();
+    const settings = await this.settingsRepository.save({
+      ...current,
+      currency: normalizedCurrency,
+      lowStockThreshold: payload.lowStockThreshold,
+      defaultProductStatus: payload.defaultProductStatus,
+      defaultMarkupPercent: payload.defaultMarkupPercent
     });
 
     return {
@@ -64,5 +51,23 @@ export class SettingsService {
       defaultProductStatus: settings.defaultProductStatus,
       defaultMarkupPercent: Number(settings.defaultMarkupPercent)
     };
+  }
+
+  private async ensureSettings(): Promise<BusinessSettingsEntity> {
+    const existing = await this.settingsRepository.findOneBy({ id: 'business-settings' });
+
+    if (existing) {
+      return existing;
+    }
+
+    return this.settingsRepository.save(
+      this.settingsRepository.create({
+        id: 'business-settings',
+        currency: 'UZS',
+        lowStockThreshold: 3,
+        defaultProductStatus: ProductStatus.Draft,
+        defaultMarkupPercent: 28
+      })
+    );
   }
 }

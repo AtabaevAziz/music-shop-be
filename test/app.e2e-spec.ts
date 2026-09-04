@@ -1,14 +1,15 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { PrismaService } from '../src/database/prisma.service';
+import { DataSource } from 'typeorm';
 import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/app.setup';
-import { seedDatabase } from '../prisma/seed';
+import { CustomerEntity, InventoryMovementEntity, ProductEntity } from '../src/database/entities';
+import { seedDatabase } from '../src/database/seed';
 import request from 'supertest';
 
 describe('Music Shop initial phase (e2e)', () => {
   let app: INestApplication;
-  let prisma: PrismaService;
+  let dataSource: DataSource;
 
   async function loginAsAdmin(agent: ReturnType<typeof request.agent>): Promise<void> {
     await agent
@@ -39,11 +40,11 @@ describe('Music Shop initial phase (e2e)', () => {
     configureApp(app);
     await app.init();
 
-    prisma = app.get(PrismaService);
+    dataSource = app.get(DataSource);
   });
 
   beforeEach(async () => {
-    await seedDatabase(prisma);
+    await seedDatabase(dataSource);
   });
 
   afterAll(async () => {
@@ -109,9 +110,7 @@ describe('Music Shop initial phase (e2e)', () => {
         customerId = response.body.session.customerId;
       });
 
-    const createdCustomer = await prisma.customer.findUnique({
-      where: { id: customerId }
-    });
+    const createdCustomer = await dataSource.getRepository(CustomerEntity).findOneBy({ id: customerId });
 
     expect(createdCustomer).toEqual(
       expect.objectContaining({
@@ -1107,15 +1106,15 @@ describe('Music Shop initial phase (e2e)', () => {
         expect(response.body.order.items[0].unitPrice).toBe(8700000);
       });
 
-    const updatedProduct = await prisma.product.findUnique({
-      where: { id: 'product-yamaha-p125' }
+    const updatedProduct = await dataSource.getRepository(ProductEntity).findOneBy({
+      id: 'product-yamaha-p125'
     });
-    const movement = await prisma.inventoryMovement.findFirst({
+    const movement = await dataSource.getRepository(InventoryMovementEntity).findOne({
       where: {
         productId: 'product-yamaha-p125',
         delta: -1
       },
-      orderBy: [{ createdAt: 'desc' }]
+      order: { createdAt: 'DESC' }
     });
 
     expect(updatedProduct?.stockQty).toBe(1);

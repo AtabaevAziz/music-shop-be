@@ -1,22 +1,30 @@
 import { Injectable } from '@nestjs/common';
-import {
-  ActorType,
-  DeliveryStatus as PrismaDeliveryStatus,
-  InventoryMovementType,
-  OrderStatus as PrismaOrderStatus,
-  PackagingStatus as PrismaPackagingStatus,
-  PaymentStatus as PrismaPaymentStatus,
-  Prisma,
-  Product
-} from '@prisma/client';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Brackets, DataSource, EntityManager, In, Like, Repository } from 'typeorm';
+import { ActorType } from '../common/enums/actor-type.enum';
 import { DeliveryMethod } from '../common/enums/delivery-method.enum';
+import { DeliveryStatus } from '../common/enums/delivery-status.enum';
+import { InventoryMovementType } from '../common/enums/inventory-movement-type.enum';
 import { OrderStatus } from '../common/enums/order-status.enum';
+import { PackagingStatus } from '../common/enums/packaging-status.enum';
 import { PaymentMethod } from '../common/enums/payment-method.enum';
+import { PaymentStatus } from '../common/enums/payment-status.enum';
 import { ApiException } from '../common/exceptions/api.exception';
 import { ORDER_STATUS_TRANSITIONS } from '../common/constants/workflow.constants';
 import { createId } from '../common/utils/id.util';
 import { getNextSequentialPrefixedId } from '../common/utils/sequential-id.util';
-import { PrismaService } from '../database/prisma.service';
+import {
+  ActivityEntity,
+  CustomerEntity,
+  DeliveryEntity,
+  InventoryMovementEntity,
+  OrderEntity,
+  OrderItemEntity,
+  OrderStatusHistoryEntity,
+  PackagingDetailEntity,
+  PaymentEntity,
+  ProductEntity
+} from '../database/entities';
 import { CreateClientOrderDto } from './dto/create-client-order.dto';
 import { StubPaymentWebhookDto } from './dto/stub-payment-webhook.dto';
 import { UpdateOrderPaymentDto } from './dto/update-order-payment.dto';
@@ -32,19 +40,13 @@ type OrderFilters = {
 
 type CheckoutItemInput = CreateClientOrderDto['items'][number];
 
-type OrderRecord = Prisma.OrderGetPayload<{
-  include: {
-    items: true;
-    payments: true;
-    delivery: true;
-    packaging: true;
-    statusHistory: {
-      orderBy: {
-        changedAt: 'asc';
-      };
-    };
-  };
-}>;
+type OrderRecord = OrderEntity & {
+  items: OrderItemEntity[];
+  payments: PaymentEntity[];
+  delivery: DeliveryEntity | null;
+  packaging: PackagingDetailEntity | null;
+  statusHistory: OrderStatusHistoryEntity[];
+};
 
 type OrderContactSnapshot = {
   firstName: string;
@@ -191,39 +193,53 @@ type PaymentStatusUpdateContext = {
 
 @Injectable()
 export class OrdersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly dataSource: DataSource,
+    @InjectRepository(OrderEntity)
+    private readonly orderRepository: Repository<OrderEntity>,
+    @InjectRepository(CustomerEntity)
+    private readonly customerRepository: Repository<CustomerEntity>
+  ) {}
 
   async listOrders(filters: OrderFilters = {}): Promise<OrderWire[]> {
-    const orders = await this.prisma.order.findMany({
-      where: {
-        ...(filters.status ? { status: filters.status as PrismaOrderStatus } : {}),
-        ...(filters.paymentStatus
-          ? { paymentStatus: filters.paymentStatus as PrismaPaymentStatus }
-          : {}),
-        ...(filters.customerId ? { customerId: filters.customerId } : {}),
-        ...(filters.search
-          ? {
-              OR: [
-                { orderNumber: { contains: filters.search, mode: 'insensitive' } },
-                { customerNameSnapshot: { contains: filters.search, mode: 'insensitive' } },
-                { phoneSnapshot: { contains: filters.search, mode: 'insensitive' } }
-              ]
-            }
-          : {})
-      },
-      include: this.orderInclude,
-      orderBy: [{ createdAt: 'desc' }],
-      ...(filters.limit ? { take: filters.limit } : {})
-    });
+    const query = this.buildOrderRecordQuery();
 
-    return orders.map((order) => this.toWire(order));
+    if (filters.status) {
+      query.andWhere('orderRecord.status = :status', { status: filters.status });
+    }
+
+    if (filters.paymentStatus) {
+      query.andWhere('orderRecord.paymentStatus = :paymentStatus', { paymentStatus: filters.paymentStatus });
+    }
+
+    if (filters.customerId) {
+      query.andWhere('orderRecord.customerId = :customerId', { customerId: filters.customerId });
+    }
+
+    if (filters.search) {
+      query.andWhere(
+        new Brackets((builder) => {
+          builder
+            .where('orderRecord.orderNumber ILIKE :search', { search: `%${filters.search}%` })
+            .orWhere('orderRecord.customerNameSnapshot ILIKE :search', { search: `%${filters.search}%` })
+            .orWhere('orderRecord.phoneSnapshot ILIKE :search', { search: `%${filters.search}%` });
+        })
+      );
+    }
+
+    query.orderBy('orderRecord.createdAt', 'DESC').addOrderBy('statusHistory.changedAt', 'ASC');
+
+    if (filters.limit) {
+      query.take(filters.limit);
+    }
+
+    const orders = await query.getMany();
+
+    return orders.map((order) => this.toWire(this.normalizeLoadedOrder(order as OrderRecord)));
   }
 
   async getOrderById(id: string): Promise<OrderWire> {
-    const order = await this.prisma.order.findUnique({
-      where: { id },
-      include: this.orderInclude
-    });
+    const order = await this.loadOrderById(id);
 
     if (!order) {
       throw ApiException.notFound('Order was not found.');
@@ -240,10 +256,7 @@ export class OrdersService {
       throw ApiException.validation('Phone or email is required to verify the order.', 'phone');
     }
 
-    const order = await this.prisma.order.findUnique({
-      where: { orderNumber },
-      include: this.orderInclude
-    });
+    const order = await this.loadOrderByOrderNumber(orderNumber);
 
     if (!order) {
       throw ApiException.notFound('Order was not found.');
@@ -261,9 +274,7 @@ export class OrdersService {
   }
 
   async createClientOrder(customerId: string, payload: CreateClientOrderDto): Promise<OrderWire> {
-    const customer = await this.prisma.customer.findUnique({
-      where: { id: customerId }
-    });
+    const customer = await this.customerRepository.findOneBy({ id: customerId });
 
     if (!customer) {
       throw ApiException.notFound('Customer was not found.');
@@ -299,17 +310,14 @@ export class OrdersService {
   }
 
   async updateOrderStatus(id: string, payload: UpdateOrderStatusDto, actor?: { employeeId?: string }): Promise<OrderWire> {
-    return this.prisma.$transaction(async (tx) => {
-      const order = await tx.order.findUnique({
-        where: { id },
-        include: this.orderInclude
-      });
+    return this.dataSource.transaction(async (manager) => {
+      const order = await this.loadOrderById(id, manager);
 
       if (!order) {
         throw ApiException.notFound('Order was not found.');
       }
 
-      const currentStatus = order.status as OrderStatus;
+      const currentStatus = order.status;
       const nextStatus = payload.status;
       const allowedTransitions = ORDER_STATUS_TRANSITIONS[currentStatus] ?? [];
 
@@ -317,14 +325,11 @@ export class OrdersService {
         throw ApiException.invalidTransition('Order status transition is not allowed.');
       }
 
-      await this.applyOrderStatusSideEffects(tx, order, nextStatus, payload, {
+      await this.applyOrderStatusSideEffects(manager, order, nextStatus, payload, {
         changedById: actor?.employeeId
       });
 
-      const updatedOrder = await tx.order.findUnique({
-        where: { id },
-        include: this.orderInclude
-      });
+      const updatedOrder = await this.loadOrderById(id, manager);
 
       if (!updatedOrder) {
         throw ApiException.notFound('Order was not found after update.');
@@ -335,29 +340,29 @@ export class OrdersService {
   }
 
   async updateOrderPayment(id: string, payload: UpdateOrderPaymentDto, actor?: { employeeId?: string }): Promise<OrderWire> {
-    return this.prisma.$transaction(async (tx) => {
-      const order = await tx.order.findUnique({
-        where: { id },
-        include: this.orderInclude
-      });
+    return this.dataSource.transaction(async (manager) => {
+      const order = await this.loadOrderById(id, manager);
 
       if (!order) {
         throw ApiException.notFound('Order was not found.');
       }
 
-      await this.applyPaymentStatusUpdate(tx, order, payload.paymentStatus as PrismaPaymentStatus, {
-        changedByType: ActorType.employee,
-        changedById: actor?.employeeId,
-        comment: payload.comment
-      }, {
-        provider: payload.provider,
-        transactionId: payload.transactionId
-      });
+      await this.applyPaymentStatusUpdate(
+        manager,
+        order,
+        payload.paymentStatus,
+        {
+          changedByType: ActorType.Employee,
+          changedById: actor?.employeeId,
+          comment: payload.comment
+        },
+        {
+          provider: payload.provider,
+          transactionId: payload.transactionId
+        }
+      );
 
-      const updatedOrder = await tx.order.findUnique({
-        where: { id },
-        include: this.orderInclude
-      });
+      const updatedOrder = await this.loadOrderById(id, manager);
 
       if (!updatedOrder) {
         throw ApiException.notFound('Order was not found after update.');
@@ -368,28 +373,28 @@ export class OrdersService {
   }
 
   async handleStubPaymentWebhook(orderId: string, payload: StubPaymentWebhookDto): Promise<OrderWire> {
-    return this.prisma.$transaction(async (tx) => {
-      const order = await tx.order.findUnique({
-        where: { id: orderId },
-        include: this.orderInclude
-      });
+    return this.dataSource.transaction(async (manager) => {
+      const order = await this.loadOrderById(orderId, manager);
 
       if (!order) {
         throw ApiException.notFound('Order was not found.');
       }
 
-      await this.applyPaymentStatusUpdate(tx, order, payload.paymentStatus as PrismaPaymentStatus, {
-        changedByType: ActorType.system,
-        comment: 'Stub payment gateway callback'
-      }, {
-        provider: 'stub-gateway',
-        transactionId: payload.transactionId ?? `stub-${Date.now()}`
-      });
+      await this.applyPaymentStatusUpdate(
+        manager,
+        order,
+        payload.paymentStatus,
+        {
+          changedByType: ActorType.System,
+          comment: 'Stub payment gateway callback'
+        },
+        {
+          provider: 'stub-gateway',
+          transactionId: payload.transactionId ?? `stub-${Date.now()}`
+        }
+      );
 
-      const updatedOrder = await tx.order.findUnique({
-        where: { id: orderId },
-        include: this.orderInclude
-      });
+      const updatedOrder = await this.loadOrderById(orderId, manager);
 
       if (!updatedOrder) {
         throw ApiException.notFound('Order was not found after webhook update.');
@@ -400,9 +405,9 @@ export class OrdersService {
   }
 
   private async createCheckoutOrder(payload: CreateCheckoutPayload): Promise<OrderWire> {
-    return this.prisma.$transaction(async (tx) => {
+    return this.dataSource.transaction(async (manager) => {
       this.validateDeliverySelection(payload);
-      const products = await this.loadProductsForCheckout(tx, payload.items);
+      const products = await this.loadProductsForCheckout(manager, payload.items);
       const stockDemand = this.getStockDemand(payload.items);
 
       for (const [productId, requestedQty] of stockDemand.entries()) {
@@ -410,7 +415,9 @@ export class OrdersService {
         const availableQty = (product?.stockQty ?? 0) - (product?.reservedQty ?? 0);
 
         if (!product || availableQty < requestedQty) {
-          throw ApiException.conflict(`Only ${Math.max(availableQty, 0)} item(s) available for ${product?.name ?? productId}.`);
+          throw ApiException.conflict(
+            `Only ${Math.max(availableQty, 0)} item(s) available for ${product?.name ?? productId}.`
+          );
         }
       }
 
@@ -421,144 +428,191 @@ export class OrdersService {
       const deliveryCost = this.resolveDeliveryCost(payload.deliveryMethod);
       const total = subtotal + deliveryCost;
       const createdAt = new Date();
-      const orderNumber = await this.allocateOrderNumber(tx);
+      const orderId = createId('order');
+      const orderNumber = await this.allocateOrderNumber(manager);
       const contactSnapshot = this.buildContactSnapshot(payload);
       const addressSnapshot = this.buildAddressSnapshot(payload);
 
-      const order = await tx.order.create({
-        data: {
-          id: createId('order'),
+      const orderRepository = manager.getRepository(OrderEntity);
+      const orderItemRepository = manager.getRepository(OrderItemEntity);
+      const paymentRepository = manager.getRepository(PaymentEntity);
+      const deliveryRepository = manager.getRepository(DeliveryEntity);
+      const packagingRepository = manager.getRepository(PackagingDetailEntity);
+      const statusHistoryRepository = manager.getRepository(OrderStatusHistoryEntity);
+      const productRepository = manager.getRepository(ProductEntity);
+      const movementRepository = manager.getRepository(InventoryMovementEntity);
+
+      await orderRepository.save(
+        orderRepository.create({
+          id: orderId,
           orderNumber,
           customerId: payload.customerId,
           customerNameSnapshot: contactSnapshot.name,
           phoneSnapshot: contactSnapshot.phone,
           emailSnapshot: contactSnapshot.email,
           deliveryAddressSnapshot: this.serializeAddressSnapshot(addressSnapshot),
-          paymentMethod: payload.paymentMethod as never,
-          paymentStatus: PrismaPaymentStatus.pending,
-          deliveryMethod: payload.deliveryMethod as never,
-          status: PrismaOrderStatus.new,
+          paymentMethod: payload.paymentMethod,
+          paymentStatus: PaymentStatus.Pending,
+          deliveryMethod: payload.deliveryMethod,
+          status: OrderStatus.New,
           notes: payload.notes?.trim() ?? '',
           subtotal,
           deliveryCost,
           total,
           createdAt,
-          updatedAt: createdAt,
-          items: {
-            create: payload.items.map((item) => {
-              const product = products.get(item.productId)!;
-              const quantity = this.getItemQuantity(item);
-              return {
-                id: createId('order-item'),
-                productId: product.id,
-                productName: product.name,
-                quantity,
-                unitPrice: product.price,
-                totalPrice: product.price * quantity
-              };
-            })
-          },
-          payments: {
-            create: {
-              id: createId('payment'),
-              method: payload.paymentMethod as never,
-              status: PrismaPaymentStatus.pending,
-              amount: total,
-              provider: payload.paymentMethod === PaymentMethod.Online ? 'stub-gateway' : null,
-              createdAt,
-              updatedAt: createdAt
-            }
-          },
-          delivery: {
-            create: {
-              id: createId('delivery'),
-              method: payload.deliveryMethod as never,
-              company: payload.deliveryCompany?.trim() ?? null,
-              address: addressSnapshot.formatted,
-              shippingCost: deliveryCost,
-              status: PrismaDeliveryStatus.not_ready,
-              createdAt,
-              updatedAt: createdAt
-            }
-          },
-          packaging: {
-            create: {
-              id: createId('packaging'),
-              status: PrismaPackagingStatus.not_started,
-              fragile: false,
-              createdAt,
-              updatedAt: createdAt
-            }
-          },
-          statusHistory: {
-            create: {
-              id: createId('status-history'),
-              oldStatus: null,
-              newStatus: PrismaOrderStatus.new,
-              changedByType: ActorType.system,
-              comment: 'Order created',
-              changedAt: createdAt
-            }
-          }
-        },
-        include: this.orderInclude
-      });
+          updatedAt: createdAt
+        })
+      );
 
-      await Promise.all(
-        [...stockDemand.entries()].map(async ([productId, qty]) => {
-          const product = products.get(productId)!;
+      await orderItemRepository.save(
+        payload.items.map((item) => {
+          const product = products.get(item.productId)!;
+          const quantity = this.getItemQuantity(item);
 
-          await tx.product.update({
-            where: { id: productId },
-            data: {
-              reservedQty: product.reservedQty + qty
-            }
-          });
-
-          await tx.inventoryMovement.create({
-            data: {
-              id: createId('movement'),
-              productId,
-              delta: 0,
-              type: InventoryMovementType.reserve,
-              reason: `Reserved ${qty} item(s) for order ${order.orderNumber}`,
-              referenceType: 'order',
-              referenceId: order.id,
-              createdAt
-            }
+          return orderItemRepository.create({
+            id: createId('order-item'),
+            orderId,
+            productId: product.id,
+            productName: product.name,
+            quantity,
+            unitPrice: product.price,
+            totalPrice: product.price * quantity
           });
         })
       );
 
-      await this.recordActivity(tx, 'activity.orderCreated', {
-        orderNumber: order.orderNumber,
-        customerId: payload.customerId
-      }, createdAt);
+      await paymentRepository.save(
+        paymentRepository.create({
+          id: createId('payment'),
+          orderId,
+          method: payload.paymentMethod,
+          status: PaymentStatus.Pending,
+          amount: total,
+          provider: payload.paymentMethod === PaymentMethod.Online ? 'stub-gateway' : null,
+          transactionId: null,
+          providerPayload: null,
+          paidAt: null,
+          createdAt,
+          updatedAt: createdAt
+        })
+      );
+
+      await deliveryRepository.save(
+        deliveryRepository.create({
+          id: createId('delivery'),
+          orderId,
+          method: payload.deliveryMethod,
+          company: payload.deliveryCompany?.trim() ?? null,
+          address: addressSnapshot.formatted,
+          trackingNumber: null,
+          shippingCost: deliveryCost,
+          status: DeliveryStatus.NotReady,
+          shippedAt: null,
+          deliveredAt: null,
+          createdAt,
+          updatedAt: createdAt
+        })
+      );
+
+      await packagingRepository.save(
+        packagingRepository.create({
+          id: createId('packaging'),
+          orderId,
+          status: PackagingStatus.NotStarted,
+          packedAt: null,
+          employeeId: null,
+          weightGrams: null,
+          dimensions: null,
+          fragile: false,
+          packageType: null,
+          comment: null,
+          createdAt,
+          updatedAt: createdAt
+        })
+      );
+
+      await statusHistoryRepository.save(
+        statusHistoryRepository.create({
+          id: createId('status-history'),
+          orderId,
+          oldStatus: null,
+          newStatus: OrderStatus.New,
+          changedByType: ActorType.System,
+          changedById: null,
+          comment: 'Order created',
+          changedAt: createdAt
+        })
+      );
+
+      for (const [productId, qty] of stockDemand.entries()) {
+        const product = products.get(productId)!;
+
+        await productRepository.save({
+          ...product,
+          reservedQty: product.reservedQty + qty
+        });
+
+        await movementRepository.save(
+          movementRepository.create({
+            id: createId('movement'),
+            productId,
+            delta: 0,
+            type: InventoryMovementType.Reserve,
+            reason: `Reserved ${qty} item(s) for order ${orderNumber}`,
+            referenceType: 'order',
+            referenceId: orderId,
+            createdAt
+          })
+        );
+      }
+
+      await this.recordActivity(
+        manager,
+        'activity.orderCreated',
+        {
+          orderNumber,
+          customerId: payload.customerId
+        },
+        createdAt
+      );
+
+      const order = await this.loadOrderById(orderId, manager);
+
+      if (!order) {
+        throw ApiException.notFound('Order was not found after creation.');
+      }
 
       return this.toWire(order);
     });
   }
 
   private async applyOrderStatusSideEffects(
-    tx: Prisma.TransactionClient,
+    manager: EntityManager,
     order: OrderRecord,
     nextStatus: OrderStatus,
     payload: UpdateOrderStatusDto,
     actor?: { changedById?: string }
   ): Promise<void> {
     const now = new Date();
+    const packagingRepository = manager.getRepository(PackagingDetailEntity);
+    const deliveryRepository = manager.getRepository(DeliveryEntity);
+    const productRepository = manager.getRepository(ProductEntity);
+    const movementRepository = manager.getRepository(InventoryMovementEntity);
+    const orderRepository = manager.getRepository(OrderEntity);
+    const statusHistoryRepository = manager.getRepository(OrderStatusHistoryEntity);
     const packagingMeta = this.mergePackagingMeta(order.packaging?.comment ?? null, payload);
     const dimensionValue = this.buildDimensionsValue(payload, order.packaging?.dimensions ?? null);
-    const carrier = payload.carrier?.trim() || payload.deliveryCompany?.trim() || order.delivery?.company || null;
+    const carrier =
+      payload.carrier?.trim() || payload.deliveryCompany?.trim() || order.delivery?.company || null;
 
     if (nextStatus === OrderStatus.Cancelled) {
-      await this.releaseReservations(tx, order, `Order ${order.orderNumber} cancelled`, now);
+      await this.releaseReservations(manager, order, `Order ${order.orderNumber} cancelled`, now);
       await this.applyPaymentStatusUpdate(
-        tx,
+        manager,
         order,
-        order.paymentStatus === PrismaPaymentStatus.paid ? PrismaPaymentStatus.refunded : PrismaPaymentStatus.cancelled,
+        order.paymentStatus === PaymentStatus.Paid ? PaymentStatus.Refunded : PaymentStatus.Cancelled,
         {
-          changedByType: ActorType.employee,
+          changedByType: ActorType.Employee,
           changedById: actor?.changedById,
           comment: payload.comment ?? 'Order cancelled'
         },
@@ -567,70 +621,60 @@ export class OrdersService {
       );
     }
 
-    if ([OrderStatus.Picking, OrderStatus.Packing].includes(nextStatus)) {
-      await tx.packagingDetail.update({
-        where: { orderId: order.id },
-        data: {
-          status: PrismaPackagingStatus.in_progress,
-          updatedAt: now
-        }
+    if ([OrderStatus.Picking, OrderStatus.Packing].includes(nextStatus) && order.packaging) {
+      await packagingRepository.save({
+        ...order.packaging,
+        status: PackagingStatus.InProgress,
+        updatedAt: now
       });
     }
 
-    if (nextStatus === OrderStatus.Packed) {
-      await tx.packagingDetail.update({
-        where: { orderId: order.id },
-        data: {
-          status: PrismaPackagingStatus.packed,
-          fragile: payload.fragile ?? order.packaging?.fragile ?? false,
-          packageType: payload.packageType ?? order.packaging?.packageType ?? null,
-          dimensions: dimensionValue,
-          weightGrams: payload.weightGrams ?? order.packaging?.weightGrams ?? null,
-          comment: this.serializePackagingMeta(packagingMeta),
-          packedAt: now,
-          employeeId: actor?.changedById,
-          updatedAt: now
-        }
+    if (nextStatus === OrderStatus.Packed && order.packaging) {
+      await packagingRepository.save({
+        ...order.packaging,
+        status: PackagingStatus.Packed,
+        fragile: payload.fragile ?? order.packaging.fragile ?? false,
+        packageType: payload.packageType ?? order.packaging.packageType ?? null,
+        dimensions: dimensionValue,
+        weightGrams: payload.weightGrams ?? order.packaging.weightGrams ?? null,
+        comment: this.serializePackagingMeta(packagingMeta),
+        packedAt: now,
+        employeeId: actor?.changedById ?? null,
+        updatedAt: now
       });
     }
 
-    if (nextStatus === OrderStatus.ReadyForShipment) {
-      await tx.packagingDetail.update({
-        where: { orderId: order.id },
-        data: {
-          status: PrismaPackagingStatus.ready_for_shipment,
-          fragile: payload.fragile ?? order.packaging?.fragile ?? false,
-          packageType: payload.packageType ?? order.packaging?.packageType ?? null,
-          dimensions: dimensionValue,
-          weightGrams: payload.weightGrams ?? order.packaging?.weightGrams ?? null,
-          comment: this.serializePackagingMeta(packagingMeta),
-          packedAt: order.packaging?.packedAt ?? now,
-          employeeId: actor?.changedById ?? order.packaging?.employeeId ?? null,
-          updatedAt: now
-        }
+    if (nextStatus === OrderStatus.ReadyForShipment && order.packaging && order.delivery) {
+      await packagingRepository.save({
+        ...order.packaging,
+        status: PackagingStatus.ReadyForShipment,
+        fragile: payload.fragile ?? order.packaging.fragile ?? false,
+        packageType: payload.packageType ?? order.packaging.packageType ?? null,
+        dimensions: dimensionValue,
+        weightGrams: payload.weightGrams ?? order.packaging.weightGrams ?? null,
+        comment: this.serializePackagingMeta(packagingMeta),
+        packedAt: order.packaging.packedAt ?? now,
+        employeeId: actor?.changedById ?? order.packaging.employeeId ?? null,
+        updatedAt: now
       });
 
-      await tx.delivery.update({
-        where: { orderId: order.id },
-        data: {
-          company: carrier,
-          status: PrismaDeliveryStatus.ready_for_shipment,
-          updatedAt: now
-        }
+      await deliveryRepository.save({
+        ...order.delivery,
+        company: carrier,
+        status: DeliveryStatus.ReadyForShipment,
+        updatedAt: now
       });
     }
 
-    if (nextStatus === OrderStatus.StockProblem) {
-      await tx.packagingDetail.update({
-        where: { orderId: order.id },
-        data: {
-          comment: this.serializePackagingMeta(packagingMeta),
-          updatedAt: now
-        }
+    if (nextStatus === OrderStatus.StockProblem && order.packaging) {
+      await packagingRepository.save({
+        ...order.packaging,
+        comment: this.serializePackagingMeta(packagingMeta),
+        updatedAt: now
       });
 
       await this.recordActivity(
-        tx,
+        manager,
         'activity.orderStockProblem',
         {
           orderNumber: order.orderNumber,
@@ -646,85 +690,79 @@ export class OrdersService {
       }
 
       for (const item of order.items) {
-        const product = await tx.product.findUnique({ where: { id: item.productId } });
+        const product = await productRepository.findOneBy({ id: item.productId });
 
         if (!product || product.reservedQty < item.quantity || product.stockQty < item.quantity) {
           throw ApiException.conflict('Reserved stock is inconsistent for shipment.');
         }
 
-        await tx.product.update({
-          where: { id: item.productId },
-          data: {
-            stockQty: product.stockQty - item.quantity,
-            reservedQty: product.reservedQty - item.quantity
-          }
+        await productRepository.save({
+          ...product,
+          stockQty: product.stockQty - item.quantity,
+          reservedQty: product.reservedQty - item.quantity
         });
 
-        await tx.inventoryMovement.create({
-          data: {
+        await movementRepository.save(
+          movementRepository.create({
             id: createId('movement'),
             productId: item.productId,
             delta: -item.quantity,
-            type: InventoryMovementType.ship,
+            type: InventoryMovementType.Ship,
             reason: `Shipped ${item.quantity} item(s) for order ${order.orderNumber}`,
             referenceType: 'order',
             referenceId: order.id,
             createdAt: now
-          }
-        });
+          })
+        );
       }
 
-      await tx.delivery.update({
-        where: { orderId: order.id },
-        data: {
+      if (order.delivery) {
+        await deliveryRepository.save({
+          ...order.delivery,
           company: carrier,
           trackingNumber: payload.trackingNumber.trim(),
-          status: PrismaDeliveryStatus.shipped,
+          status: DeliveryStatus.Shipped,
           shippedAt: now,
           updatedAt: now
-        }
-      });
-    }
-
-    if (nextStatus === OrderStatus.Delivered) {
-      await tx.delivery.update({
-        where: { orderId: order.id },
-        data: {
-          status: PrismaDeliveryStatus.delivered,
-          deliveredAt: now,
-          updatedAt: now
-        }
-      });
-    }
-
-    await tx.order.update({
-      where: { id: order.id },
-      data: {
-        status: nextStatus as PrismaOrderStatus,
-        confirmedAt: nextStatus === OrderStatus.Confirmed ? now : order.confirmedAt,
-        packedAt: nextStatus === OrderStatus.Packed ? now : order.packedAt,
-        shippedAt: nextStatus === OrderStatus.Shipped ? now : order.shippedAt,
-        deliveredAt: nextStatus === OrderStatus.Delivered ? now : order.deliveredAt,
-        cancelledAt: nextStatus === OrderStatus.Cancelled ? now : order.cancelledAt,
-        updatedAt: now
+        });
       }
+    }
+
+    if (nextStatus === OrderStatus.Delivered && order.delivery) {
+      await deliveryRepository.save({
+        ...order.delivery,
+        status: DeliveryStatus.Delivered,
+        deliveredAt: now,
+        updatedAt: now
+      });
+    }
+
+    await orderRepository.save({
+      ...order,
+      status: nextStatus,
+      confirmedAt: nextStatus === OrderStatus.Confirmed ? now : order.confirmedAt,
+      packedAt: nextStatus === OrderStatus.Packed ? now : order.packedAt,
+      shippedAt: nextStatus === OrderStatus.Shipped ? now : order.shippedAt,
+      deliveredAt: nextStatus === OrderStatus.Delivered ? now : order.deliveredAt,
+      cancelledAt: nextStatus === OrderStatus.Cancelled ? now : order.cancelledAt,
+      updatedAt: now
     });
 
-    await tx.orderStatusHistory.create({
-      data: {
+    await statusHistoryRepository.save(
+      statusHistoryRepository.create({
         id: createId('status-history'),
         orderId: order.id,
         oldStatus: order.status,
-        newStatus: nextStatus as PrismaOrderStatus,
-        changedByType: actor?.changedById ? ActorType.employee : ActorType.system,
-        changedById: actor?.changedById,
+        newStatus: nextStatus,
+        changedByType: actor?.changedById ? ActorType.Employee : ActorType.System,
+        changedById: actor?.changedById ?? null,
         comment: payload.comment?.trim() || null,
         changedAt: now
-      }
-    });
+      })
+    );
 
     await this.recordActivity(
-      tx,
+      manager,
       'activity.orderMoved',
       {
         orderNumber: order.orderNumber,
@@ -735,13 +773,16 @@ export class OrdersService {
   }
 
   private async applyPaymentStatusUpdate(
-    tx: Prisma.TransactionClient,
+    manager: EntityManager,
     order: OrderRecord,
-    paymentStatus: PrismaPaymentStatus,
+    paymentStatus: PaymentStatus,
     context: PaymentStatusUpdateContext,
     details: { provider?: string; transactionId?: string },
     suppressReservationRelease = false
   ): Promise<void> {
+    const paymentRepository = manager.getRepository(PaymentEntity);
+    const orderRepository = manager.getRepository(OrderEntity);
+    const statusHistoryRepository = manager.getRepository(OrderStatusHistoryEntity);
     const payment = order.payments[0];
 
     if (!payment) {
@@ -750,66 +791,66 @@ export class OrdersService {
 
     const now = new Date();
 
-    await tx.payment.update({
-      where: { id: payment.id },
-      data: {
-        status: paymentStatus,
-        provider: details.provider ?? payment.provider,
-        transactionId: details.transactionId ?? payment.transactionId,
-        paidAt: paymentStatus === PrismaPaymentStatus.paid ? now : payment.paidAt,
-        updatedAt: now
-      }
+    await paymentRepository.save({
+      ...payment,
+      status: paymentStatus,
+      provider: details.provider ?? payment.provider,
+      transactionId: details.transactionId ?? payment.transactionId,
+      paidAt: paymentStatus === PaymentStatus.Paid ? now : payment.paidAt,
+      updatedAt: now
     });
 
-    const orderUpdateData: Prisma.OrderUpdateInput = {
+    const orderUpdateData: Partial<OrderEntity> = {
       paymentStatus,
       updatedAt: now
     };
 
     const shouldCancelOrder =
-      paymentStatus === PrismaPaymentStatus.failed
-      || paymentStatus === PrismaPaymentStatus.cancelled
-      || paymentStatus === PrismaPaymentStatus.refunded;
+      paymentStatus === PaymentStatus.Failed ||
+      paymentStatus === PaymentStatus.Cancelled ||
+      paymentStatus === PaymentStatus.Refunded;
     const isTerminalOrderStatus =
-      order.status === PrismaOrderStatus.cancelled
-      || order.status === PrismaOrderStatus.shipped
-      || order.status === PrismaOrderStatus.delivered;
+      order.status === OrderStatus.Cancelled ||
+      order.status === OrderStatus.Shipped ||
+      order.status === OrderStatus.Delivered;
 
-    if (
-      shouldCancelOrder
-      && !isTerminalOrderStatus
-    ) {
-      orderUpdateData.status = PrismaOrderStatus.cancelled;
+    if (shouldCancelOrder && !isTerminalOrderStatus) {
+      orderUpdateData.status = OrderStatus.Cancelled;
       orderUpdateData.cancelledAt = now;
 
       if (!suppressReservationRelease) {
-        await this.releaseReservations(tx, order, `Payment ${paymentStatus} for order ${order.orderNumber}`, now);
+        await this.releaseReservations(
+          manager,
+          order,
+          `Payment ${paymentStatus} for order ${order.orderNumber}`,
+          now
+        );
       }
     }
 
-    await tx.order.update({
-      where: { id: order.id },
-      data: orderUpdateData
+    await orderRepository.save({
+      ...order,
+      ...orderUpdateData
     });
 
     if (order.status !== orderUpdateData.status && orderUpdateData.status) {
-      await tx.orderStatusHistory.create({
-        data: {
+      await statusHistoryRepository.save(
+        statusHistoryRepository.create({
           id: createId('status-history'),
           orderId: order.id,
           oldStatus: order.status,
-          newStatus: orderUpdateData.status as PrismaOrderStatus,
-          changedByType: context.changedByType ?? ActorType.system,
+          newStatus: orderUpdateData.status,
+          changedByType: context.changedByType ?? ActorType.System,
           changedById: context.changedById ?? null,
           comment: context.comment ?? `Payment moved to ${paymentStatus}`,
           changedAt: now
-        }
-      });
+        })
+      );
     }
 
     await this.recordActivity(
-      tx,
-      paymentStatus === PrismaPaymentStatus.paid ? 'activity.paymentPaid' : 'activity.paymentUpdated',
+      manager,
+      paymentStatus === PaymentStatus.Paid ? 'activity.paymentPaid' : 'activity.paymentUpdated',
       {
         orderNumber: order.orderNumber,
         paymentStatus
@@ -819,49 +860,48 @@ export class OrdersService {
   }
 
   private async releaseReservations(
-    tx: Prisma.TransactionClient,
+    manager: EntityManager,
     order: OrderRecord,
     reason: string,
     createdAt: Date
   ): Promise<void> {
+    const productRepository = manager.getRepository(ProductEntity);
+    const movementRepository = manager.getRepository(InventoryMovementEntity);
+
     for (const item of order.items) {
-      const product = await tx.product.findUnique({ where: { id: item.productId } });
+      const product = await productRepository.findOneBy({ id: item.productId });
 
       if (!product || product.reservedQty < item.quantity) {
         continue;
       }
 
-      await tx.product.update({
-        where: { id: item.productId },
-        data: {
-          reservedQty: product.reservedQty - item.quantity
-        }
+      await productRepository.save({
+        ...product,
+        reservedQty: product.reservedQty - item.quantity
       });
 
-      await tx.inventoryMovement.create({
-        data: {
+      await movementRepository.save(
+        movementRepository.create({
           id: createId('movement'),
           productId: item.productId,
           delta: 0,
-          type: InventoryMovementType.release,
+          type: InventoryMovementType.Release,
           reason,
           referenceType: 'order',
           referenceId: order.id,
           createdAt
-        }
-      });
+        })
+      );
     }
   }
 
   private async loadProductsForCheckout(
-    tx: Prisma.TransactionClient,
+    manager: EntityManager,
     items: CreateClientOrderDto['items']
-  ): Promise<Map<string, Product>> {
+  ): Promise<Map<string, ProductEntity>> {
     const requestedProductIds = [...new Set(items.map((item) => item.productId))];
-    const products = await tx.product.findMany({
-      where: {
-        id: { in: requestedProductIds }
-      }
+    const products = await manager.getRepository(ProductEntity).findBy({
+      id: In(requestedProductIds)
     });
 
     const productMap = new Map(products.map((product) => [product.id, product]));
@@ -916,11 +956,11 @@ export class OrdersService {
   }
 
   private validateDeliverySelection(payload: CreateCheckoutPayload) {
-    if (
-      payload.deliveryMethod === DeliveryMethod.DeliveryCompany
-      && !payload.deliveryCompany?.trim()
-    ) {
-      throw ApiException.validation('Delivery company is required for the selected delivery method.', 'deliveryCompany');
+    if (payload.deliveryMethod === DeliveryMethod.DeliveryCompany && !payload.deliveryCompany?.trim()) {
+      throw ApiException.validation(
+        'Delivery company is required for the selected delivery method.',
+        'deliveryCompany'
+      );
     }
   }
 
@@ -1049,9 +1089,9 @@ export class OrdersService {
 
   private buildDimensionsValue(payload: UpdateOrderStatusDto, current: string | null) {
     if (
-      payload.lengthCm === undefined
-      && payload.widthCm === undefined
-      && payload.heightCm === undefined
+      payload.lengthCm === undefined &&
+      payload.widthCm === undefined &&
+      payload.heightCm === undefined
     ) {
       return current;
     }
@@ -1081,13 +1121,13 @@ export class OrdersService {
 
   private findWarehouseIssue(order: OrderRecord, packagingMeta: PackagingMeta) {
     const issueType = packagingMeta.warehouseIssueType;
-    if (!issueType && order.status !== PrismaOrderStatus.stock_problem) {
+    if (!issueType && order.status !== OrderStatus.StockProblem) {
       return null;
     }
 
     const historyEntry = [...order.statusHistory]
       .reverse()
-      .find((entry) => entry.newStatus === PrismaOrderStatus.stock_problem);
+      .find((entry) => entry.newStatus === OrderStatus.StockProblem);
 
     return {
       type: issueType ?? 'UNKNOWN',
@@ -1095,10 +1135,12 @@ export class OrdersService {
     };
   }
 
-  private async allocateOrderNumber(tx: Prisma.TransactionClient): Promise<string> {
+  private async allocateOrderNumber(manager: EntityManager): Promise<string> {
+    const orderRepository = manager.getRepository(OrderEntity);
+
     for (let attempt = 0; attempt < 5; attempt += 1) {
-      const existingOrderNumbers = await tx.order.findMany({
-        where: { orderNumber: { startsWith: 'ORD-' } },
+      const existingOrderNumbers = await orderRepository.find({
+        where: { orderNumber: Like('ORD-%') },
         select: { orderNumber: true }
       });
 
@@ -1108,7 +1150,7 @@ export class OrdersService {
         1001
       );
 
-      const existing = await tx.order.findUnique({ where: { orderNumber } });
+      const existing = await orderRepository.findOneBy({ orderNumber });
 
       if (!existing) {
         return orderNumber;
@@ -1119,50 +1161,52 @@ export class OrdersService {
   }
 
   private async recordActivity(
-    tx: Prisma.TransactionClient,
+    manager: EntityManager,
     title: string,
     messageParams: Record<string, string | number>,
     timestamp = new Date()
   ) {
-    await tx.activity.create({
-      data: {
+    const activityRepository = manager.getRepository(ActivityEntity);
+
+    await activityRepository.save(
+      activityRepository.create({
         id: createId('activity'),
         title,
         messageKey: title,
         messageParams,
         timestamp
-      }
-    });
+      })
+    );
   }
 
   private getOrderStage(order: OrderRecord): OrderStage {
     if (
-      order.status === PrismaOrderStatus.cancelled
-      || order.status === PrismaOrderStatus.returned
-      || order.status === PrismaOrderStatus.stock_problem
-      || order.paymentStatus === PrismaPaymentStatus.failed
-      || order.paymentStatus === PrismaPaymentStatus.cancelled
-      || order.paymentStatus === PrismaPaymentStatus.refunded
+      order.status === OrderStatus.Cancelled ||
+      order.status === OrderStatus.Returned ||
+      order.status === OrderStatus.StockProblem ||
+      order.paymentStatus === PaymentStatus.Failed ||
+      order.paymentStatus === PaymentStatus.Cancelled ||
+      order.paymentStatus === PaymentStatus.Refunded
     ) {
       return 'exception';
     }
 
     switch (order.status) {
-      case PrismaOrderStatus.new:
+      case OrderStatus.New:
         return 'intake';
-      case PrismaOrderStatus.confirmed:
+      case OrderStatus.Confirmed:
         return 'payment';
-      case PrismaOrderStatus.sent_to_warehouse:
-      case PrismaOrderStatus.picking:
-      case PrismaOrderStatus.picked:
+      case OrderStatus.SentToWarehouse:
+      case OrderStatus.Picking:
+      case OrderStatus.Picked:
         return 'warehouse';
-      case PrismaOrderStatus.packing:
-      case PrismaOrderStatus.packed:
+      case OrderStatus.Packing:
+      case OrderStatus.Packed:
         return 'packing';
-      case PrismaOrderStatus.ready_for_shipment:
-      case PrismaOrderStatus.shipped:
+      case OrderStatus.ReadyForShipment:
+      case OrderStatus.Shipped:
         return 'shipment';
-      case PrismaOrderStatus.delivered:
+      case OrderStatus.Delivered:
         return 'completed';
       default:
         return 'intake';
@@ -1194,11 +1238,9 @@ export class OrdersService {
     if (order.delivery?.shippedAt) {
       timeline.push({
         type: 'delivery',
-        status: PrismaDeliveryStatus.shipped,
+        status: DeliveryStatus.Shipped,
         happenedAt: order.delivery.shippedAt,
-        comment: order.delivery.trackingNumber
-          ? `Tracking ${order.delivery.trackingNumber}`
-          : null,
+        comment: order.delivery.trackingNumber ? `Tracking ${order.delivery.trackingNumber}` : null,
         actorType: null,
         actorId: null
       });
@@ -1207,7 +1249,7 @@ export class OrdersService {
     if (order.delivery?.deliveredAt) {
       timeline.push({
         type: 'delivery',
-        status: PrismaDeliveryStatus.delivered,
+        status: DeliveryStatus.Delivered,
         happenedAt: order.delivery.deliveredAt,
         comment: order.delivery.company ? `Carrier ${order.delivery.company}` : null,
         actorType: null,
@@ -1215,9 +1257,7 @@ export class OrdersService {
       });
     }
 
-    return timeline.sort(
-      (left, right) => left.happenedAt.getTime() - right.happenedAt.getTime()
-    );
+    return timeline.sort((left, right) => left.happenedAt.getTime() - right.happenedAt.getTime());
   }
 
   private toWire(order: OrderRecord): OrderWire {
@@ -1226,7 +1266,7 @@ export class OrdersService {
     const contactSnapshot = this.parseContactSnapshot(order);
     const packagingMeta = this.parsePackagingMeta(order.packaging?.comment ?? null);
     const parsedDimensions = this.parseDimensions(order.packaging?.dimensions ?? null);
-    const availableTransitions = ORDER_STATUS_TRANSITIONS[order.status as OrderStatus] ?? [];
+    const availableTransitions = ORDER_STATUS_TRANSITIONS[order.status] ?? [];
 
     return {
       id: order.id,
@@ -1303,7 +1343,7 @@ export class OrdersService {
       })),
       timeline: this.buildTimeline(order),
       paymentRedirectUrl:
-        order.paymentMethod === 'online' && order.paymentStatus === PrismaPaymentStatus.pending
+        order.paymentMethod === PaymentMethod.Online && order.paymentStatus === PaymentStatus.Pending
           ? `/payments/stub/${order.id}`
           : null,
       createdAt: order.createdAt,
@@ -1311,15 +1351,46 @@ export class OrdersService {
     };
   }
 
-  private readonly orderInclude = {
-    items: true,
-    payments: true,
-    delivery: true,
-    packaging: true,
-    statusHistory: {
-      orderBy: {
-        changedAt: 'asc'
-      }
-    }
-  } satisfies Prisma.OrderInclude;
+  private buildOrderRecordQuery(manager?: EntityManager) {
+    return this.getOrderRepository(manager)
+      .createQueryBuilder('orderRecord')
+      .leftJoinAndSelect('orderRecord.items', 'items')
+      .leftJoinAndSelect('orderRecord.payments', 'payments')
+      .leftJoinAndSelect('orderRecord.delivery', 'delivery')
+      .leftJoinAndSelect('orderRecord.packaging', 'packaging')
+      .leftJoinAndSelect('orderRecord.statusHistory', 'statusHistory');
+  }
+
+  private async loadOrderById(id: string, manager?: EntityManager): Promise<OrderRecord | null> {
+    const order = await this.buildOrderRecordQuery(manager)
+      .where('orderRecord.id = :id', { id })
+      .orderBy('statusHistory.changedAt', 'ASC')
+      .getOne();
+
+    return order ? this.normalizeLoadedOrder(order as OrderRecord) : null;
+  }
+
+  private async loadOrderByOrderNumber(orderNumber: string, manager?: EntityManager): Promise<OrderRecord | null> {
+    const order = await this.buildOrderRecordQuery(manager)
+      .where('orderRecord.orderNumber = :orderNumber', { orderNumber })
+      .orderBy('statusHistory.changedAt', 'ASC')
+      .getOne();
+
+    return order ? this.normalizeLoadedOrder(order as OrderRecord) : null;
+  }
+
+  private normalizeLoadedOrder(order: OrderRecord): OrderRecord {
+    order.statusHistory = [...(order.statusHistory ?? [])].sort(
+      (left, right) => left.changedAt.getTime() - right.changedAt.getTime()
+    );
+    order.payments = [...(order.payments ?? [])].sort(
+      (left, right) => left.createdAt.getTime() - right.createdAt.getTime()
+    );
+    order.items = [...(order.items ?? [])];
+    return order;
+  }
+
+  private getOrderRepository(manager?: EntityManager) {
+    return manager?.getRepository(OrderEntity) ?? this.orderRepository;
+  }
 }

@@ -1,8 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { InventoryMovement } from '@prisma/client';
+import { InjectRepository } from '@nestjs/typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { ApiException } from '../common/exceptions/api.exception';
 import { createId } from '../common/utils/id.util';
-import { PrismaService } from '../database/prisma.service';
+import { ActivityEntity, InventoryMovementEntity, ProductEntity } from '../database/entities';
 import { InventoryAdjustmentDto } from './dto/inventory-adjustment.dto';
 
 type InventoryMovementWire = {
@@ -15,14 +16,18 @@ type InventoryMovementWire = {
 
 @Injectable()
 export class InventoryService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly dataSource: DataSource,
+    @InjectRepository(InventoryMovementEntity)
+    private readonly inventoryMovementRepository: Repository<InventoryMovementEntity>
+  ) {}
 
   async listMovements(productId?: string, limit?: number): Promise<InventoryMovementWire[]> {
-    const items = await this.prisma.inventoryMovement.findMany({
+    const items = await this.inventoryMovementRepository.find({
       where: {
         ...(productId ? { productId } : {})
       },
-      orderBy: [{ createdAt: 'desc' }],
+      order: { createdAt: 'DESC' },
       ...(limit ? { take: limit } : {})
     });
 
@@ -33,10 +38,11 @@ export class InventoryService {
     product: { id: string; stockQty: number };
     movement: InventoryMovementWire;
   }> {
-    const result = await this.prisma.$transaction(async (tx) => {
-      const product = await tx.product.findUnique({
-        where: { id: payload.productId }
-      });
+    const result = await this.dataSource.transaction(async (manager) => {
+      const productRepository = manager.getRepository(ProductEntity);
+      const movementRepository = manager.getRepository(InventoryMovementEntity);
+      const activityRepository = manager.getRepository(ActivityEntity);
+      const product = await productRepository.findOneBy({ id: payload.productId });
 
       if (!product) {
         throw ApiException.validation('Product must exist.', 'productId');
@@ -48,24 +54,22 @@ export class InventoryService {
         throw ApiException.conflict('Inventory adjustment would produce negative stock.');
       }
 
-      const updatedProduct = await tx.product.update({
-        where: { id: product.id },
-        data: {
-          stockQty: nextStockQty
-        }
+      const updatedProduct = await productRepository.save({
+        ...product,
+        stockQty: nextStockQty
       });
 
-      const movement = await tx.inventoryMovement.create({
-        data: {
+      const movement = await movementRepository.save(
+        movementRepository.create({
           id: createId('movement'),
           productId: product.id,
           delta: payload.delta,
           reason: payload.reason.trim()
-        }
-      });
+        })
+      );
 
-      await tx.activity.create({
-        data: {
+      await activityRepository.save(
+        activityRepository.create({
           id: createId('activity'),
           title: 'activity.inventoryAdjusted',
           messageKey: 'activity.inventoryAdjusted',
@@ -73,8 +77,8 @@ export class InventoryService {
             productId: product.id,
             delta: payload.delta
           }
-        }
-      });
+        })
+      );
 
       return {
         product: {
@@ -88,7 +92,7 @@ export class InventoryService {
     return result;
   }
 
-  private toWire(item: InventoryMovement): InventoryMovementWire {
+  private toWire(item: InventoryMovementEntity): InventoryMovementWire {
     return {
       id: item.id,
       productId: item.productId,

@@ -1,11 +1,14 @@
 import { Injectable } from '@nestjs/common';
-import { Condition, Prisma, Product } from '@prisma/client';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Brackets, In, Repository } from 'typeorm';
 import { ApiException } from '../common/exceptions/api.exception';
+import { Condition } from '../common/enums/condition.enum';
+import { ProductStatus } from '../common/enums/product-status.enum';
 import { createId } from '../common/utils/id.util';
 import { normalizeMediaPath } from '../common/utils/media.util';
 import { slugify } from '../common/utils/slug.util';
 import { isAbsolutePathOrUrl } from '../common/utils/url.util';
-import { PrismaService } from '../database/prisma.service';
+import { CategoryEntity, ProductEntity } from '../database/entities';
 import { CreateProductDto } from './dto/create-product.dto';
 import { ProductImageDto } from './dto/product-image.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -66,75 +69,84 @@ type PublicProductWire = {
   brand: string;
 };
 
-type ProductWithRelations = Prisma.ProductGetPayload<{
-  include: {
-    category: true;
-  };
-}>;
+type ProductWithRelations = ProductEntity & {
+  category: CategoryEntity;
+};
 
 @Injectable()
 export class ProductsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    @InjectRepository(ProductEntity)
+    private readonly productRepository: Repository<ProductEntity>,
+    @InjectRepository(CategoryEntity)
+    private readonly categoryRepository: Repository<CategoryEntity>
+  ) {}
 
   async listProducts(filters: ProductFilters = {}): Promise<ProductWire[]> {
-    const products = await this.prisma.product.findMany({
-      where: {
-        ...(filters.status ? { status: filters.status as never } : {}),
-        ...(filters.categoryId ? { categoryId: filters.categoryId } : {}),
-        ...(filters.brand
-          ? { brand: { equals: filters.brand, mode: 'insensitive' } }
-          : {}),
-        ...(filters.search
-          ? {
-              OR: [
-                { name: { contains: filters.search, mode: 'insensitive' } },
-                { sku: { contains: filters.search, mode: 'insensitive' } },
-                { brand: { contains: filters.search, mode: 'insensitive' } }
-              ]
-            }
-          : {})
-      },
-      orderBy: [{ name: 'asc' }]
-    });
+    const query = this.productRepository.createQueryBuilder('product');
+
+    if (filters.status) {
+      query.andWhere('product.status = :status', { status: filters.status });
+    }
+
+    if (filters.categoryId) {
+      query.andWhere('product.categoryId = :categoryId', { categoryId: filters.categoryId });
+    }
+
+    if (filters.brand) {
+      query.andWhere('LOWER(product.brand) = LOWER(:brand)', { brand: filters.brand });
+    }
+
+    if (filters.search) {
+      query.andWhere(
+        new Brackets((builder) => {
+          builder
+            .where('product.name ILIKE :search', { search: `%${filters.search}%` })
+            .orWhere('product.sku ILIKE :search', { search: `%${filters.search}%` })
+            .orWhere('product.brand ILIKE :search', { search: `%${filters.search}%` });
+        })
+      );
+    }
+
+    const products = await query.orderBy('product.name', 'ASC').getMany();
 
     return products.map((product) => this.toWire(product));
   }
 
   async listClientProducts(): Promise<ProductWire[]> {
-    return this.listProducts({ status: 'active' });
+    return this.listProducts({ status: ProductStatus.Active });
   }
 
   async listPublicProducts(filters: Pick<ProductFilters, 'search'> = {}): Promise<PublicProductWire[]> {
-    const products = await this.prisma.product.findMany({
-      where: {
-        status: 'active',
-        ...(filters.search
-          ? {
-              OR: [
-                { name: { contains: filters.search, mode: 'insensitive' } },
-                { sku: { contains: filters.search, mode: 'insensitive' } },
-                { shortDescription: { contains: filters.search, mode: 'insensitive' } },
-                { brand: { contains: filters.search, mode: 'insensitive' } }
-              ]
-            }
-          : {})
-      },
-      include: {
-        category: true
-      },
-      orderBy: [{ name: 'asc' }]
-    });
+    const query = this.productRepository
+      .createQueryBuilder('product')
+      .leftJoinAndSelect('product.category', 'category')
+      .where('product.status = :status', { status: ProductStatus.Active });
 
-    return products.map((product) => this.toPublicWire(product));
+    if (filters.search) {
+      query.andWhere(
+        new Brackets((builder) => {
+          builder
+            .where('product.name ILIKE :search', { search: `%${filters.search}%` })
+            .orWhere('product.sku ILIKE :search', { search: `%${filters.search}%` })
+            .orWhere('product.shortDescription ILIKE :search', { search: `%${filters.search}%` })
+            .orWhere('product.brand ILIKE :search', { search: `%${filters.search}%` });
+        })
+      );
+    }
+
+    const products = await query.orderBy('product.name', 'ASC').getMany();
+
+    return products.map((product) => this.toPublicWire(product as ProductWithRelations));
   }
 
   async getPublicProduct(id: string): Promise<PublicProductWire> {
-    const product = await this.prisma.product.findFirst({
+    const product = await this.productRepository.findOne({
       where: {
         id,
-        status: 'active'
+        status: ProductStatus.Active
       },
-      include: {
+      relations: {
         category: true
       }
     });
@@ -143,11 +155,11 @@ export class ProductsService {
       throw ApiException.notFound('Product was not found.');
     }
 
-    return this.toPublicWire(product);
+    return this.toPublicWire(product as ProductWithRelations);
   }
 
   async getProduct(id: string): Promise<ProductWire> {
-    const product = await this.prisma.product.findUnique({ where: { id } });
+    const product = await this.productRepository.findOneBy({ id });
 
     if (!product) {
       throw ApiException.notFound('Product was not found.');
@@ -164,8 +176,8 @@ export class ProductsService {
     const primaryImage = this.resolvePrimaryImage(payload.primaryImage, images);
     this.assertValidImages(images, primaryImage ?? undefined);
 
-    const product = await this.prisma.product.create({
-      data: {
+    const product = await this.productRepository.save(
+      this.productRepository.create({
         id: createId('product'),
         name: payload.name.trim(),
         slug: slugify(payload.name),
@@ -176,22 +188,23 @@ export class ProductsService {
         price: payload.price,
         costPrice: payload.costPrice,
         stockQty: payload.stockQty,
+        reservedQty: 0,
         minStockQty: payload.minStockQty,
-        status: payload.status as never,
+        status: payload.status,
         shortDescription: payload.shortDescription.trim(),
         description: payload.description.trim(),
         specs: payload.specs,
         images,
         primaryImage,
-        condition: payload.condition as never
-      }
-    });
+        condition: payload.condition
+      })
+    );
 
     return this.toWire(product);
   }
 
   async updateProduct(id: string, payload: UpdateProductDto): Promise<ProductWire> {
-    const existing = await this.prisma.product.findUnique({ where: { id } });
+    const existing = await this.productRepository.findOneBy({ id });
 
     if (!existing) {
       throw ApiException.notFound('Product was not found.');
@@ -216,41 +229,39 @@ export class ProductsService {
     );
     this.assertValidImages(nextImages, nextPrimaryImage ?? undefined);
 
-    const product = await this.prisma.product.update({
-      where: { id },
-      data: {
-        name: payload.name?.trim(),
-        slug: payload.name?.trim() ? slugify(payload.name) : undefined,
-        sku: payload.sku?.trim(),
-        barcode:
-          payload.barcode === undefined
-            ? undefined
-            : this.normalizeNullableText(payload.barcode),
-        categoryId: payload.categoryId,
-        brand: payload.brand?.trim(),
-        price: payload.price,
-        costPrice: payload.costPrice,
-        stockQty: payload.stockQty,
-        minStockQty: payload.minStockQty,
-        status: payload.status as never,
-        shortDescription: payload.shortDescription?.trim(),
-        description: payload.description?.trim(),
-        specs: payload.specs as Prisma.InputJsonValue | undefined,
-        images: nextImages,
-        primaryImage: nextPrimaryImage,
-        condition: payload.condition as never
-      }
+    const product = await this.productRepository.save({
+      ...existing,
+      name: payload.name?.trim() ?? existing.name,
+      slug: payload.name?.trim() ? slugify(payload.name) : existing.slug,
+      sku: payload.sku?.trim() ?? existing.sku,
+      barcode:
+        payload.barcode === undefined
+          ? existing.barcode
+          : this.normalizeNullableText(payload.barcode),
+      categoryId: payload.categoryId ?? existing.categoryId,
+      brand: payload.brand?.trim() ?? existing.brand,
+      price: payload.price ?? existing.price,
+      costPrice: payload.costPrice ?? existing.costPrice,
+      stockQty: payload.stockQty ?? existing.stockQty,
+      minStockQty: payload.minStockQty === undefined ? existing.minStockQty : payload.minStockQty,
+      status: payload.status ?? existing.status,
+      shortDescription: payload.shortDescription?.trim() ?? existing.shortDescription,
+      description: payload.description?.trim() ?? existing.description,
+      specs: payload.specs ?? existing.specs,
+      images: nextImages,
+      primaryImage: nextPrimaryImage,
+      condition: payload.condition ?? existing.condition
     });
 
     return this.toWire(product);
   }
 
   async deleteProduct(id: string): Promise<void> {
-    const product = await this.prisma.product.findUnique({
+    const product = await this.productRepository.findOne({
       where: { id },
-      include: {
-        inventoryMoves: { select: { id: true }, take: 1 },
-        orderItems: { select: { id: true }, take: 1 }
+      relations: {
+        inventoryMoves: true,
+        orderItems: true
       }
     });
 
@@ -262,11 +273,11 @@ export class ProductsService {
       throw ApiException.conflict('Product cannot be deleted while linked orders or inventory movements exist.');
     }
 
-    await this.prisma.product.delete({ where: { id } });
+    await this.productRepository.delete({ id });
   }
 
   async addImage(id: string, payload: ProductImageDto): Promise<{ id: string; images: string[]; primaryImage: string | null }> {
-    const product = await this.prisma.product.findUnique({ where: { id } });
+    const product = await this.productRepository.findOneBy({ id });
 
     if (!product) {
       throw ApiException.notFound('Product was not found.');
@@ -281,14 +292,12 @@ export class ProductsService {
       throw ApiException.conflict('Product image already exists.', 'image');
     }
 
-    const updated = await this.prisma.product.update({
-      where: { id },
-      data: {
-        images: [...images, image],
-        primaryImage: product.primaryImage
-          ? this.normalizeImagePath(product.primaryImage)
-          : null
-      }
+    const updated = await this.productRepository.save({
+      ...product,
+      images: [...images, image],
+      primaryImage: product.primaryImage
+        ? this.normalizeImagePath(product.primaryImage)
+        : null
     });
 
     return {
@@ -301,7 +310,7 @@ export class ProductsService {
   }
 
   async setPrimaryImage(id: string, payload: ProductImageDto): Promise<{ id: string; primaryImage: string | null }> {
-    const product = await this.prisma.product.findUnique({ where: { id } });
+    const product = await this.productRepository.findOneBy({ id });
 
     if (!product) {
       throw ApiException.notFound('Product was not found.');
@@ -314,12 +323,10 @@ export class ProductsService {
       throw ApiException.validation('Primary image must belong to this product.', 'image');
     }
 
-    const updated = await this.prisma.product.update({
-      where: { id },
-      data: {
-        images,
-        primaryImage: image
-      }
+    const updated = await this.productRepository.save({
+      ...product,
+      images,
+      primaryImage: image
     });
 
     return {
@@ -330,19 +337,17 @@ export class ProductsService {
     };
   }
 
-  async getActiveProductsByIds(productIds: string[]): Promise<Product[]> {
-    return this.prisma.product.findMany({
+  async getActiveProductsByIds(productIds: string[]): Promise<ProductEntity[]> {
+    return this.productRepository.find({
       where: {
-        id: { in: productIds },
-        status: 'active'
+        id: In(productIds),
+        status: ProductStatus.Active
       }
     });
   }
 
   private async assertUniqueSku(sku: string, productId?: string): Promise<void> {
-    const existing = await this.prisma.product.findUnique({
-      where: { sku: sku.trim() }
-    });
+    const existing = await this.productRepository.findOneBy({ sku: sku.trim() });
 
     if (existing && existing.id !== productId) {
       throw ApiException.conflict('Product SKU must be unique.', 'sku');
@@ -350,7 +355,7 @@ export class ProductsService {
   }
 
   private async assertCategoryExists(categoryId: string): Promise<void> {
-    const category = await this.prisma.category.findUnique({ where: { id: categoryId } });
+    const category = await this.categoryRepository.findOneBy({ id: categoryId });
 
     if (!category) {
       throw ApiException.validation('Category must exist.', 'categoryId');
@@ -413,7 +418,7 @@ export class ProductsService {
     }
   }
 
-  private toWire(product: Product): ProductWire {
+  private toWire(product: ProductEntity): ProductWire {
     return {
       id: product.id,
       name: product.name,
@@ -431,7 +436,7 @@ export class ProductsService {
       status: product.status,
       shortDescription: product.shortDescription,
       description: product.description,
-      specs: product.specs as Record<string, string>,
+      specs: product.specs,
       images: this.normalizeImageList(product.images),
       primaryImage: product.primaryImage
         ? this.normalizeImagePath(product.primaryImage)
@@ -454,7 +459,7 @@ export class ProductsService {
       availableQty: product.stockQty - product.reservedQty,
       shortDescription: product.shortDescription,
       description: product.description,
-      specs: product.specs as Record<string, string>,
+      specs: product.specs,
       images: this.normalizeImageList(product.images),
       primaryImage: product.primaryImage
         ? this.normalizeImagePath(product.primaryImage)

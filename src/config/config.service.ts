@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../database/prisma.service';
+import { InjectRepository } from '@nestjs/typeorm';
 import { Condition } from '../common/enums/condition.enum';
 import { CustomerTier } from '../common/enums/customer-tier.enum';
 import { DeliveryMethod } from '../common/enums/delivery-method.enum';
@@ -12,10 +12,15 @@ import { ProductStatus } from '../common/enums/product-status.enum';
 import { RepairStatus } from '../common/enums/repair-status.enum';
 import { Role } from '../common/enums/role.enum';
 import { ORDER_STATUS_TRANSITIONS } from '../common/constants/workflow.constants';
+import { BusinessSettingsEntity } from '../database/entities';
+import { Repository } from 'typeorm';
 
 @Injectable()
 export class RuntimeConfigService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    @InjectRepository(BusinessSettingsEntity)
+    private readonly settingsRepository: Repository<BusinessSettingsEntity>
+  ) {}
 
   private readonly adminNavigation = [
     'dashboard',
@@ -39,9 +44,7 @@ export class RuntimeConfigService {
   }
 
   async getAppConfig() {
-    const settings = await this.prisma.businessSettings.findUnique({
-      where: { id: 'business-settings' }
-    });
+    const settings = await this.settingsRepository.findOneBy({ id: 'business-settings' });
 
     return {
       appConfig: {

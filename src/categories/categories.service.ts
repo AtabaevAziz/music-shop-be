@@ -1,11 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { Category, Prisma } from '@prisma/client';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { ApiException } from '../common/exceptions/api.exception';
 import { createId } from '../common/utils/id.util';
 import { normalizeMediaPath } from '../common/utils/media.util';
 import { slugify } from '../common/utils/slug.util';
 import { isAbsolutePathOrUrl } from '../common/utils/url.util';
-import { PrismaService } from '../database/prisma.service';
+import { CategoryEntity } from '../database/entities';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 
@@ -20,33 +21,31 @@ type CategoryWire = {
   productCount: number;
 };
 
-type CategoryWithCount = Prisma.CategoryGetPayload<{
-  include: {
-    _count: {
-      select: {
-        products: true;
-      };
-    };
-  };
-}>;
+type CategoryWithCount = CategoryEntity & {
+  productCount: number;
+};
 
 @Injectable()
 export class CategoriesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    @InjectRepository(CategoryEntity)
+    private readonly categoryRepository: Repository<CategoryEntity>
+  ) {}
 
   async listCategories(): Promise<CategoryWire[]> {
-    const categories = await this.prisma.category.findMany({
-      include: {
-        _count: {
-          select: {
-            products: true
-          }
-        }
+    const categories = await this.categoryRepository.find({
+      relations: {
+        products: true
       },
-      orderBy: [{ name: 'asc' }]
+      order: { name: 'ASC' }
     });
 
-    return categories.map((category) => this.toWire(category));
+    return categories.map((category) =>
+      this.toWire({
+        ...category,
+        productCount: category.products.length
+      })
+    );
   }
 
   async createCategory(payload: CreateCategoryDto): Promise<CategoryWire> {
@@ -55,8 +54,8 @@ export class CategoriesService {
     const slug = await this.generateUniqueSlug(payload.name);
     const image = this.normalizeImagePath(payload.image);
     this.assertImageValue(image);
-    const category = await this.prisma.category.create({
-      data: {
+    const category = await this.categoryRepository.save(
+      this.categoryRepository.create({
         id: createId('category', slug),
         name: payload.name.trim(),
         slug,
@@ -64,14 +63,14 @@ export class CategoriesService {
         image,
         status: payload.status.trim(),
         description: payload.description.trim()
-      }
-    });
+      })
+    );
 
     return this.toWire(category);
   }
 
   async updateCategory(id: string, payload: UpdateCategoryDto): Promise<CategoryWire> {
-    const existing = await this.prisma.category.findUnique({ where: { id } });
+    const existing = await this.categoryRepository.findOneBy({ id });
 
     if (!existing) {
       throw ApiException.notFound('Category was not found.');
@@ -91,32 +90,25 @@ export class CategoriesService {
         : this.normalizeImagePath(payload.image);
     this.assertImageValue(image);
 
-    const category = await this.prisma.category.update({
-      where: { id },
-      data: {
-        name: payload.name?.trim(),
-        slug,
-        parentId: nextParentId ?? null,
-        image,
-        status: payload.status?.trim(),
-        description: payload.description?.trim()
-      }
+    const category = await this.categoryRepository.save({
+      ...existing,
+      name: payload.name?.trim() ?? existing.name,
+      slug,
+      parentId: nextParentId ?? null,
+      image,
+      status: payload.status?.trim() ?? existing.status,
+      description: payload.description?.trim() ?? existing.description
     });
 
     return this.toWire(category);
   }
 
   async deleteCategory(id: string): Promise<void> {
-    const existing = await this.prisma.category.findUnique({
+    const existing = await this.categoryRepository.findOne({
       where: { id },
-      include: {
-        children: {
-          select: { id: true }
-        },
-        products: {
-          select: { id: true },
-          take: 1
-        }
+      relations: {
+        children: true,
+        products: true
       }
     });
 
@@ -132,7 +124,7 @@ export class CategoriesService {
       throw ApiException.conflict('Category cannot be deleted while linked products exist.');
     }
 
-    await this.prisma.category.delete({ where: { id } });
+    await this.categoryRepository.delete({ id });
   }
 
   private async assertValidParent(parentId: string | null, selfId?: string): Promise<void> {
@@ -144,7 +136,7 @@ export class CategoriesService {
       throw ApiException.validation('Category cannot be a parent of itself.', 'parentId');
     }
 
-    const parent = await this.prisma.category.findUnique({ where: { id: parentId } });
+    const parent = await this.categoryRepository.findOneBy({ id: parentId });
 
     if (!parent) {
       throw ApiException.validation('Parent category must exist.', 'parentId');
@@ -159,9 +151,11 @@ export class CategoriesService {
         throw ApiException.validation('Category parent creates a cycle.', 'parentId');
       }
 
-      const parent = await this.prisma.category.findUnique({
+      const parent = await this.categoryRepository.findOne({
         where: { id: cursor },
-        select: { parentId: true }
+        select: {
+          parentId: true
+        }
       });
 
       cursor = parent?.parentId ?? null;
@@ -179,9 +173,7 @@ export class CategoriesService {
     let sequence = 2;
 
     while (true) {
-      const existing = await this.prisma.category.findUnique({
-        where: { slug: candidate }
-      });
+      const existing = await this.categoryRepository.findOneBy({ slug: candidate });
 
       if (!existing || existing.id === categoryId) {
         return candidate;
@@ -202,7 +194,7 @@ export class CategoriesService {
     return normalizeMediaPath(image);
   }
 
-  private toWire(category: CategoryWithCount | Category): CategoryWire {
+  private toWire(category: CategoryWithCount | CategoryEntity): CategoryWire {
     return {
       id: category.id,
       name: category.name,
@@ -211,7 +203,7 @@ export class CategoriesService {
       image: this.normalizeImagePath(category.image),
       status: category.status,
       description: category.description,
-      productCount: '_count' in category ? category._count.products : 0
+      productCount: 'productCount' in category ? category.productCount : 0
     };
   }
 }

@@ -1,5 +1,5 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { QueryFailedError } from 'typeorm';
 import { Response } from 'express';
 
 @Catch()
@@ -12,8 +12,10 @@ export class HttpExceptionFilter implements ExceptionFilter {
       return;
     }
 
-    if (exception instanceof Prisma.PrismaClientKnownRequestError) {
-      if (exception.code === 'P2002') {
+    if (exception instanceof QueryFailedError) {
+      const driverError = exception.driverError as { code?: string } | undefined;
+
+      if (driverError?.code === '23505') {
         response.status(HttpStatus.CONFLICT).json({
           error: {
             code: 'conflict',

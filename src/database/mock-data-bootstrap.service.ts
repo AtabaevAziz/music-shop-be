@@ -1,12 +1,12 @@
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
-import { PrismaService } from './prisma.service';
-import { upsertMockSeedData } from '../../prisma/seed';
+import { DataSource } from 'typeorm';
+import { upsertMockSeedData } from './seed';
 
 @Injectable()
 export class MockDataBootstrapService implements OnApplicationBootstrap {
   private readonly logger = new Logger(MockDataBootstrapService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly dataSource: DataSource) {}
 
   async onApplicationBootstrap(): Promise<void> {
     if ((process.env.AUTO_SEED_MOCK_DATA ?? 'false').toLowerCase() !== 'true') {
@@ -14,7 +14,7 @@ export class MockDataBootstrapService implements OnApplicationBootstrap {
     }
 
     try {
-      await upsertMockSeedData(this.prisma);
+      await upsertMockSeedData(this.dataSource);
       this.logger.log('Mock data bootstrap finished.');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';

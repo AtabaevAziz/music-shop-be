@@ -1,3 +1,0 @@
--- Replaced by 20260730123000_order_fulfillment_workflow_rebuild.
--- This migration is intentionally left as a no-op so shadow database replay
--- can advance to the corrected forward migration.

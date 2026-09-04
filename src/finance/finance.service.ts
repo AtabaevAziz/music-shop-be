@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../database/prisma.service';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { BusinessSettingsEntity, OrderEntity } from '../database/entities';
 
 type FinanceSummary = {
   revenue: number;
@@ -10,26 +12,23 @@ type FinanceSummary = {
 
 @Injectable()
 export class FinanceService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    @InjectRepository(OrderEntity)
+    private readonly orderRepository: Repository<OrderEntity>,
+    @InjectRepository(BusinessSettingsEntity)
+    private readonly settingsRepository: Repository<BusinessSettingsEntity>
+  ) {}
 
   async getSummary(): Promise<FinanceSummary> {
     const [orders, settings] = await Promise.all([
-      this.prisma.order.findMany({
-        include: {
+      this.orderRepository.find({
+        relations: {
           items: {
-            include: {
-              product: {
-                select: {
-                  costPrice: true
-                }
-              }
-            }
+            product: true
           }
         }
       }),
-      this.prisma.businessSettings.findUnique({
-        where: { id: 'business-settings' }
-      })
+      this.settingsRepository.findOneBy({ id: 'business-settings' })
     ]);
 
     let revenue = 0;

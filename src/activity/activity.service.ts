@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../database/prisma.service';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { createId } from '../common/utils/id.util';
+import { ActivityEntity } from '../database/entities';
 
 type ActivityItem = {
   id: string;
@@ -12,11 +14,14 @@ type ActivityItem = {
 
 @Injectable()
 export class ActivityService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    @InjectRepository(ActivityEntity)
+    private readonly activityRepository: Repository<ActivityEntity>
+  ) {}
 
   async list(limit?: number): Promise<ActivityItem[]> {
-    const items = await this.prisma.activity.findMany({
-      orderBy: [{ timestamp: 'desc' }],
+    const items = await this.activityRepository.find({
+      order: { timestamp: 'DESC' },
       ...(limit ? { take: limit } : {})
     });
 
@@ -35,15 +40,14 @@ export class ActivityService {
     messageParams: Record<string, string | number | boolean | null>,
     timestamp?: Date
   ): Promise<void> {
-    await this.prisma.activity.create({
-      data: {
+    await this.activityRepository.save(
+      this.activityRepository.create({
         id: createId('activity'),
         title,
         messageKey,
         messageParams,
         ...(timestamp ? { timestamp } : {})
-      }
-    });
+      })
+    );
   }
 }
-

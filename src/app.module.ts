@@ -1,12 +1,15 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { TypeOrmModule } from '@nestjs/typeorm';
+
 import { ActivityModule } from './activity/activity.module';
 import { AuthModule } from './auth/auth.module';
 import { CategoriesModule } from './categories/categories.module';
 import { ClientModule } from './client/client.module';
 import { ConfigRuntimeModule } from './config/config.module';
 import { CustomersModule } from './customers/customers.module';
-import { PrismaModule } from './database/prisma.module';
+import { DATABASE_ENTITIES } from './database/database.entities';
+import { MockDataBootstrapService } from './database/mock-data-bootstrap.service';
 import { EmployeesModule } from './employees/employees.module';
 import { FinanceModule } from './finance/finance.module';
 import { HealthModule } from './health/health.module';
@@ -18,8 +21,21 @@ import { SettingsModule } from './settings/settings.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
-    PrismaModule,
+    ConfigModule.forRoot({
+      isGlobal: true,
+    }),
+
+    TypeOrmModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        type: 'postgres',
+        url: configService.getOrThrow<string>('DATABASE_URL'),
+        entities: [...DATABASE_ENTITIES],
+        autoLoadEntities: true,
+        synchronize: false
+      })
+    }),
+
     ActivityModule,
     AuthModule,
     ConfigRuntimeModule,
@@ -34,6 +50,7 @@ import { SettingsModule } from './settings/settings.module';
     OrdersModule,
     RepairsModule,
     ClientModule
-  ]
+  ],
+  providers: [MockDataBootstrapService]
 })
 export class AppModule {}

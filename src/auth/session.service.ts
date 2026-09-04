@@ -1,25 +1,28 @@
 import { Injectable } from '@nestjs/common';
-import { Customer, Employee, PrincipalType, Session } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { createId } from '../common/utils/id.util';
 import {
   DEFAULT_SESSION_COOKIE_NAME,
   DEFAULT_SESSION_COOKIE_SAME_SITE,
   DEFAULT_SESSION_TTL_HOURS
 } from '../common/constants/auth.constants';
-import { PrismaService } from '../database/prisma.service';
 import { SessionDto } from './types/session.dto';
 import { Role } from '../common/enums/role.enum';
+import { PrincipalType } from '../common/enums/principal-type.enum';
+import { CustomerEntity, EmployeeEntity, SessionEntity } from '../database/entities';
 
-type SessionRecord = Session & {
-  employee: Employee | null;
-  customer: Customer | null;
+type SessionRecord = SessionEntity & {
+  employee: EmployeeEntity | null;
+  customer: CustomerEntity | null;
 };
 
 @Injectable()
 export class SessionService {
   constructor(
-    private readonly prisma: PrismaService,
+    @InjectRepository(SessionEntity)
+    private readonly sessionRepository: Repository<SessionEntity>,
     private readonly configService: ConfigService
   ) {}
 
@@ -56,18 +59,18 @@ export class SessionService {
     return normalizedValue ? normalizedValue : undefined;
   }
 
-  async createEmployeeSession(employee: Employee): Promise<{ sessionId: string; session: SessionDto }> {
+  async createEmployeeSession(employee: EmployeeEntity): Promise<{ sessionId: string; session: SessionDto }> {
     const sessionId = createId('session');
     const expiresAt = new Date(Date.now() + this.sessionTtlMs);
 
-    await this.prisma.session.create({
-      data: {
+    await this.sessionRepository.save(
+      this.sessionRepository.create({
         id: sessionId,
-        principalType: PrincipalType.employee,
+        principalType: PrincipalType.Employee,
         employeeId: employee.id,
         expiresAt
-      }
-    });
+      })
+    );
 
     return {
       sessionId,
@@ -79,18 +82,18 @@ export class SessionService {
     };
   }
 
-  async createCustomerSession(customer: Customer): Promise<{ sessionId: string; session: SessionDto }> {
+  async createCustomerSession(customer: CustomerEntity): Promise<{ sessionId: string; session: SessionDto }> {
     const sessionId = createId('session');
     const expiresAt = new Date(Date.now() + this.sessionTtlMs);
 
-    await this.prisma.session.create({
-      data: {
+    await this.sessionRepository.save(
+      this.sessionRepository.create({
         id: sessionId,
-        principalType: PrincipalType.customer,
+        principalType: PrincipalType.Customer,
         customerId: customer.id,
         expiresAt
-      }
-    });
+      })
+    );
 
     return {
       sessionId,
@@ -109,9 +112,9 @@ export class SessionService {
       return null;
     }
 
-    const sessionRecord = await this.prisma.session.findUnique({
+    const sessionRecord = await this.sessionRepository.findOne({
       where: { id: sessionId },
-      include: {
+      relations: {
         employee: true,
         customer: true
       }
@@ -125,9 +128,7 @@ export class SessionService {
       return;
     }
 
-    await this.prisma.session.deleteMany({
-      where: { id: sessionId }
-    });
+    await this.sessionRepository.delete({ id: sessionId });
   }
 
   private async normalizeSession(sessionRecord: SessionRecord | null): Promise<SessionDto | null> {
@@ -140,7 +141,7 @@ export class SessionService {
       return null;
     }
 
-    if (sessionRecord.principalType === PrincipalType.employee) {
+    if (sessionRecord.principalType === PrincipalType.Employee) {
       if (!sessionRecord.employee || sessionRecord.employee.status !== 'active') {
         await this.clearSession(sessionRecord.id);
         return null;
