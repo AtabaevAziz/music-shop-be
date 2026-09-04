@@ -1,13 +1,13 @@
-import { Body, Controller, Post } from '@nestjs/common';
-import { CustomersService } from '../customers/customers.service';
-import { CreatePublicRepairDto } from './dto/create-public-repair.dto';
-import { RepairsService } from './repairs.service';
+import { Body, Controller, Post } from "@nestjs/common";
+import { CustomersService } from "../customers/customers.service";
+import { CreatePublicRepairDto } from "./dto/create-public-repair.dto";
+import { RepairsService } from "./repairs.service";
 
-@Controller('public/repairs')
+@Controller("public/repairs")
 export class PublicRepairsController {
   constructor(
     private readonly customersService: CustomersService,
-    private readonly repairsService: RepairsService
+    private readonly repairsService: RepairsService,
   ) {}
 
   @Post()
@@ -15,7 +15,7 @@ export class PublicRepairsController {
     const customer = await this.customersService.findOrCreatePublicCustomer({
       name: payload.customerName,
       phone: payload.phone,
-      email: payload.email
+      email: payload.email,
     });
 
     const repairRequest = await this.repairsService.createRepairForCustomer(
@@ -25,8 +25,8 @@ export class PublicRepairsController {
         brand: payload.instrumentModel,
         issue: payload.issueDescription,
         notes: this.formatPublicRepairNotes(payload),
-        photoUrl: payload.photoUrl
-      }
+        photoUrl: payload.photoUrl,
+      },
     );
 
     return { repairRequest };
@@ -37,11 +37,13 @@ export class PublicRepairsController {
       `Public repair request`,
       `Customer: ${payload.customerName.trim()}`,
       `Phone: ${payload.phone.trim()}`,
-      payload.email?.trim() ? `Email: ${payload.email.trim().toLowerCase()}` : null,
+      payload.email?.trim()
+        ? `Email: ${payload.email.trim().toLowerCase()}`
+        : null,
       `Instrument type: ${payload.instrumentType.trim()}`,
-      `Model: ${payload.instrumentModel.trim()}`
+      `Model: ${payload.instrumentModel.trim()}`,
     ].filter(Boolean);
 
-    return lines.join('\n');
+    return lines.join("\n");
   }
 }

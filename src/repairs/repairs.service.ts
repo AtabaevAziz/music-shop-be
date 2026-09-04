@@ -1,13 +1,20 @@
-import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Like, Repository } from 'typeorm';
-import { ApiException } from '../common/exceptions/api.exception';
-import { RepairStatus } from '../common/enums/repair-status.enum';
-import { createId } from '../common/utils/id.util';
-import { getNextSequentialPrefixedId, isUniqueConstraintError } from '../common/utils/sequential-id.util';
-import { CustomerEntity, RepairRequestEntity, ActivityEntity } from '../database/entities';
-import { CreateRepairDto } from './dto/create-repair.dto';
-import { UpdateRepairDto } from './dto/update-repair.dto';
+import { Injectable } from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Like, Repository } from "typeorm";
+import { ApiException } from "../common/exceptions/api.exception";
+import { RepairStatus } from "../common/enums/repair-status.enum";
+import { createId } from "../common/utils/id.util";
+import {
+  getNextSequentialPrefixedId,
+  isUniqueConstraintError,
+} from "../common/utils/sequential-id.util";
+import {
+  CustomerEntity,
+  RepairRequestEntity,
+  ActivityEntity,
+} from "../database/entities";
+import { CreateRepairDto } from "./dto/create-repair.dto";
+import { UpdateRepairDto } from "./dto/update-repair.dto";
 
 type RepairWire = {
   id: string;
@@ -25,8 +32,16 @@ type RepairWire = {
   updatedAt: Date;
 };
 
-type RepairCreatePayload = Pick<CreateRepairDto, 'instrumentName' | 'brand' | 'issue' | 'notes'> &
-  Partial<Pick<CreateRepairDto, 'estimatedCost' | 'assignedMasterName' | 'receivedAt' | 'photoUrl'>>;
+type RepairCreatePayload = Pick<
+  CreateRepairDto,
+  "instrumentName" | "brand" | "issue" | "notes"
+> &
+  Partial<
+    Pick<
+      CreateRepairDto,
+      "estimatedCost" | "assignedMasterName" | "receivedAt" | "photoUrl"
+    >
+  >;
 
 @Injectable()
 export class RepairsService {
@@ -36,17 +51,19 @@ export class RepairsService {
     @InjectRepository(CustomerEntity)
     private readonly customerRepository: Repository<CustomerEntity>,
     @InjectRepository(ActivityEntity)
-    private readonly activityRepository: Repository<ActivityEntity>
+    private readonly activityRepository: Repository<ActivityEntity>,
   ) {}
 
-  async listRepairs(filters: { status?: string; customerId?: string; limit?: number } = {}): Promise<RepairWire[]> {
+  async listRepairs(
+    filters: { status?: string; customerId?: string; limit?: number } = {},
+  ): Promise<RepairWire[]> {
     const items = await this.repairRepository.find({
       where: {
         ...(filters.status ? { status: filters.status as RepairStatus } : {}),
-        ...(filters.customerId ? { customerId: filters.customerId } : {})
+        ...(filters.customerId ? { customerId: filters.customerId } : {}),
       },
-      order: { createdAt: 'DESC' },
-      ...(filters.limit ? { take: filters.limit } : {})
+      order: { createdAt: "DESC" },
+      ...(filters.limit ? { take: filters.limit } : {}),
     });
 
     return items.map((item) => this.toWire(item));
@@ -56,13 +73,16 @@ export class RepairsService {
     return this.createRepairForCustomer(payload.customerId, payload);
   }
 
-  async updateRepair(id: string, payload: UpdateRepairDto): Promise<RepairWire> {
+  async updateRepair(
+    id: string,
+    payload: UpdateRepairDto,
+  ): Promise<RepairWire> {
     await this.assertCustomerExists(payload.customerId);
 
     const existing = await this.repairRepository.findOneBy({ id });
 
     if (!existing) {
-      throw ApiException.notFound('Repair request was not found.');
+      throw ApiException.notFound("Repair request was not found.");
     }
 
     const repair = await this.repairRepository.save({
@@ -75,7 +95,7 @@ export class RepairsService {
       notes: this.serializeRepairNotes(payload.notes, payload.photoUrl),
       estimatedCost: payload.estimatedCost,
       assignedMasterName: payload.assignedMasterName?.trim() ?? null,
-      receivedAt: this.parseReceivedAt(payload.receivedAt) ?? null
+      receivedAt: this.parseReceivedAt(payload.receivedAt) ?? null,
     });
 
     return this.toWire(repair);
@@ -83,20 +103,20 @@ export class RepairsService {
 
   async createRepairForCustomer(
     customerId: string,
-    payload: RepairCreatePayload
+    payload: RepairCreatePayload,
   ): Promise<RepairWire> {
     await this.assertCustomerExists(customerId);
     let repair: RepairRequestEntity | null = null;
 
     for (let attempt = 0; attempt < 5; attempt += 1) {
       const existingRepairIds = await this.repairRepository.find({
-        where: { id: Like('REP-%') },
-        select: { id: true }
+        where: { id: Like("REP-%") },
+        select: { id: true },
       });
       const repairId = getNextSequentialPrefixedId(
         existingRepairIds.map((item) => item.id),
-        'REP',
-        2001
+        "REP",
+        2001,
       );
 
       try {
@@ -111,8 +131,8 @@ export class RepairsService {
             notes: this.serializeRepairNotes(payload.notes, payload.photoUrl),
             estimatedCost: payload.estimatedCost,
             assignedMasterName: payload.assignedMasterName?.trim() ?? null,
-            receivedAt: this.parseReceivedAt(payload.receivedAt) ?? null
-          })
+            receivedAt: this.parseReceivedAt(payload.receivedAt) ?? null,
+          }),
         );
         break;
       } catch (error: unknown) {
@@ -125,19 +145,21 @@ export class RepairsService {
     }
 
     if (!repair) {
-      throw ApiException.conflict('Could not allocate a new repair number. Please retry.');
+      throw ApiException.conflict(
+        "Could not allocate a new repair number. Please retry.",
+      );
     }
 
     await this.activityRepository.save(
       this.activityRepository.create({
-        id: createId('activity'),
-        title: 'activity.repairCreated',
-        messageKey: 'activity.repairCreated',
+        id: createId("activity"),
+        title: "activity.repairCreated",
+        messageKey: "activity.repairCreated",
         messageParams: {
           repairId: repair.id,
-          customerId
-        }
-      })
+          customerId,
+        },
+      }),
     );
 
     return this.toWire(repair);
@@ -158,15 +180,17 @@ export class RepairsService {
       assignedMasterName: repair.assignedMasterName ?? undefined,
       receivedAt: repair.receivedAt ?? undefined,
       createdAt: repair.createdAt,
-      updatedAt: repair.updatedAt
+      updatedAt: repair.updatedAt,
     };
   }
 
   private async assertCustomerExists(customerId: string): Promise<void> {
-    const customer = await this.customerRepository.findOneBy({ id: customerId });
+    const customer = await this.customerRepository.findOneBy({
+      id: customerId,
+    });
 
     if (!customer) {
-      throw ApiException.validation('Customer must exist.', 'customerId');
+      throw ApiException.validation("Customer must exist.", "customerId");
     }
   }
 
@@ -174,7 +198,10 @@ export class RepairsService {
     return receivedAt ? new Date(receivedAt) : undefined;
   }
 
-  private serializeRepairNotes(notes: string, photoUrl?: string | null): string {
+  private serializeRepairNotes(
+    notes: string,
+    photoUrl?: string | null,
+  ): string {
     const normalizedNotes = notes.trim();
     const normalizedPhotoUrl = photoUrl?.trim();
 
@@ -185,14 +212,17 @@ export class RepairsService {
     return `${normalizedNotes}\n\nPhoto URL: ${normalizedPhotoUrl}`;
   }
 
-  private parseRepairNotes(notes: string): { notes: string; photoUrl: string | null } {
-    const lines = notes.split('\n');
+  private parseRepairNotes(notes: string): {
+    notes: string;
+    photoUrl: string | null;
+  } {
+    const lines = notes.split("\n");
     const keptLines: string[] = [];
     let photoUrl: string | null = null;
 
     for (const line of lines) {
-      if (line.startsWith('Photo URL: ')) {
-        photoUrl = line.slice('Photo URL: '.length).trim() || null;
+      if (line.startsWith("Photo URL: ")) {
+        photoUrl = line.slice("Photo URL: ".length).trim() || null;
         continue;
       }
 
@@ -200,8 +230,8 @@ export class RepairsService {
     }
 
     return {
-      notes: keptLines.join('\n').trim(),
-      photoUrl
+      notes: keptLines.join("\n").trim(),
+      photoUrl,
     };
   }
 }

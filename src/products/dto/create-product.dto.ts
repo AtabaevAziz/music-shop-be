@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Type } from "class-transformer";
 import {
   ArrayMinSize,
   IsArray,
@@ -8,10 +8,10 @@ import {
   IsOptional,
   IsString,
   Min,
-  MinLength
-} from 'class-validator';
-import { Condition } from '../../common/enums/condition.enum';
-import { ProductStatus } from '../../common/enums/product-status.enum';
+  MinLength,
+} from "class-validator";
+import { Condition } from "../../common/enums/condition.enum";
+import { ProductStatus } from "../../common/enums/product-status.enum";
 
 export class CreateProductDto {
   @IsString()

@@ -1,5 +1,12 @@
-import { IsEmail, IsEnum, IsIn, IsOptional, IsString, MinLength } from 'class-validator';
-import { Role } from '../../common/enums/role.enum';
+import {
+  IsEmail,
+  IsEnum,
+  IsIn,
+  IsOptional,
+  IsString,
+  MinLength,
+} from "class-validator";
+import { Role } from "../../common/enums/role.enum";
 
 export class UpdateEmployeeDto {
   @IsOptional()
@@ -23,6 +30,6 @@ export class UpdateEmployeeDto {
 
   @IsOptional()
   @IsString()
-  @IsIn(['active', 'inactive'])
+  @IsIn(["active", "inactive"])
   status?: string;
 }

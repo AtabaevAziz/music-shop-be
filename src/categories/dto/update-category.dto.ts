@@ -1,4 +1,10 @@
-import { IsIn, IsOptional, IsString, MinLength, ValidateIf } from 'class-validator';
+import {
+  IsIn,
+  IsOptional,
+  IsString,
+  MinLength,
+  ValidateIf,
+} from "class-validator";
 
 export class UpdateCategoryDto {
   @IsOptional()
@@ -13,7 +19,7 @@ export class UpdateCategoryDto {
 
   @IsOptional()
   @IsString()
-  @IsIn(['active', 'inactive'])
+  @IsIn(["active", "inactive"])
   status?: string;
 
   @IsOptional()

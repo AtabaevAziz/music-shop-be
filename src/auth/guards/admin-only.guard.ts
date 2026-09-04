@@ -1,7 +1,7 @@
-import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
-import { Role } from '../../common/enums/role.enum';
-import { ApiException } from '../../common/exceptions/api.exception';
-import { RequestWithSession } from '../interfaces/request-with-session.interface';
+import { CanActivate, ExecutionContext, Injectable } from "@nestjs/common";
+import { Role } from "../../common/enums/role.enum";
+import { ApiException } from "../../common/exceptions/api.exception";
+import { RequestWithSession } from "../interfaces/request-with-session.interface";
 
 @Injectable()
 export class AdminOnlyGuard implements CanActivate {
@@ -10,7 +10,7 @@ export class AdminOnlyGuard implements CanActivate {
     const session = request.currentSession;
 
     if (!session || session.role !== Role.Admin) {
-      throw ApiException.forbidden('Admin access is required.');
+      throw ApiException.forbidden("Admin access is required.");
     }
 
     return true;

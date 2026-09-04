@@ -1,17 +1,17 @@
-import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Brackets, In, Repository } from 'typeorm';
-import { ApiException } from '../common/exceptions/api.exception';
-import { Condition } from '../common/enums/condition.enum';
-import { ProductStatus } from '../common/enums/product-status.enum';
-import { createId } from '../common/utils/id.util';
-import { normalizeMediaPath } from '../common/utils/media.util';
-import { slugify } from '../common/utils/slug.util';
-import { isAbsolutePathOrUrl } from '../common/utils/url.util';
-import { CategoryEntity, ProductEntity } from '../database/entities';
-import { CreateProductDto } from './dto/create-product.dto';
-import { ProductImageDto } from './dto/product-image.dto';
-import { UpdateProductDto } from './dto/update-product.dto';
+import { Injectable } from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Brackets, In, Repository } from "typeorm";
+import { ApiException } from "../common/exceptions/api.exception";
+import { Condition } from "../common/enums/condition.enum";
+import { ProductStatus } from "../common/enums/product-status.enum";
+import { createId } from "../common/utils/id.util";
+import { normalizeMediaPath } from "../common/utils/media.util";
+import { slugify } from "../common/utils/slug.util";
+import { isAbsolutePathOrUrl } from "../common/utils/url.util";
+import { CategoryEntity, ProductEntity } from "../database/entities";
+import { CreateProductDto } from "./dto/create-product.dto";
+import { ProductImageDto } from "./dto/product-image.dto";
+import { UpdateProductDto } from "./dto/update-product.dto";
 
 type ProductWire = {
   id: string;
@@ -79,36 +79,46 @@ export class ProductsService {
     @InjectRepository(ProductEntity)
     private readonly productRepository: Repository<ProductEntity>,
     @InjectRepository(CategoryEntity)
-    private readonly categoryRepository: Repository<CategoryEntity>
+    private readonly categoryRepository: Repository<CategoryEntity>,
   ) {}
 
   async listProducts(filters: ProductFilters = {}): Promise<ProductWire[]> {
-    const query = this.productRepository.createQueryBuilder('product');
+    const query = this.productRepository.createQueryBuilder("product");
 
     if (filters.status) {
-      query.andWhere('product.status = :status', { status: filters.status });
+      query.andWhere("product.status = :status", { status: filters.status });
     }
 
     if (filters.categoryId) {
-      query.andWhere('product.categoryId = :categoryId', { categoryId: filters.categoryId });
+      query.andWhere("product.categoryId = :categoryId", {
+        categoryId: filters.categoryId,
+      });
     }
 
     if (filters.brand) {
-      query.andWhere('LOWER(product.brand) = LOWER(:brand)', { brand: filters.brand });
+      query.andWhere("LOWER(product.brand) = LOWER(:brand)", {
+        brand: filters.brand,
+      });
     }
 
     if (filters.search) {
       query.andWhere(
         new Brackets((builder) => {
           builder
-            .where('product.name ILIKE :search', { search: `%${filters.search}%` })
-            .orWhere('product.sku ILIKE :search', { search: `%${filters.search}%` })
-            .orWhere('product.brand ILIKE :search', { search: `%${filters.search}%` });
-        })
+            .where("product.name ILIKE :search", {
+              search: `%${filters.search}%`,
+            })
+            .orWhere("product.sku ILIKE :search", {
+              search: `%${filters.search}%`,
+            })
+            .orWhere("product.brand ILIKE :search", {
+              search: `%${filters.search}%`,
+            });
+        }),
       );
     }
 
-    const products = await query.orderBy('product.name', 'ASC').getMany();
+    const products = await query.orderBy("product.name", "ASC").getMany();
 
     return products.map((product) => this.toWire(product));
   }
@@ -117,42 +127,54 @@ export class ProductsService {
     return this.listProducts({ status: ProductStatus.Active });
   }
 
-  async listPublicProducts(filters: Pick<ProductFilters, 'search'> = {}): Promise<PublicProductWire[]> {
+  async listPublicProducts(
+    filters: Pick<ProductFilters, "search"> = {},
+  ): Promise<PublicProductWire[]> {
     const query = this.productRepository
-      .createQueryBuilder('product')
-      .leftJoinAndSelect('product.category', 'category')
-      .where('product.status = :status', { status: ProductStatus.Active });
+      .createQueryBuilder("product")
+      .leftJoinAndSelect("product.category", "category")
+      .where("product.status = :status", { status: ProductStatus.Active });
 
     if (filters.search) {
       query.andWhere(
         new Brackets((builder) => {
           builder
-            .where('product.name ILIKE :search', { search: `%${filters.search}%` })
-            .orWhere('product.sku ILIKE :search', { search: `%${filters.search}%` })
-            .orWhere('product.shortDescription ILIKE :search', { search: `%${filters.search}%` })
-            .orWhere('product.brand ILIKE :search', { search: `%${filters.search}%` });
-        })
+            .where("product.name ILIKE :search", {
+              search: `%${filters.search}%`,
+            })
+            .orWhere("product.sku ILIKE :search", {
+              search: `%${filters.search}%`,
+            })
+            .orWhere("product.shortDescription ILIKE :search", {
+              search: `%${filters.search}%`,
+            })
+            .orWhere("product.brand ILIKE :search", {
+              search: `%${filters.search}%`,
+            });
+        }),
       );
     }
 
-    const products = await query.orderBy('product.name', 'ASC').getMany();
+    const products = await query.orderBy("product.name", "ASC").getMany();
 
-    return products.map((product) => this.toPublicWire(product as ProductWithRelations));
+    return products.map((product) =>
+      this.toPublicWire(product as ProductWithRelations),
+    );
   }
 
   async getPublicProduct(id: string): Promise<PublicProductWire> {
     const product = await this.productRepository.findOne({
       where: {
         id,
-        status: ProductStatus.Active
+        status: ProductStatus.Active,
       },
       relations: {
-        category: true
-      }
+        category: true,
+      },
     });
 
     if (!product) {
-      throw ApiException.notFound('Product was not found.');
+      throw ApiException.notFound("Product was not found.");
     }
 
     return this.toPublicWire(product as ProductWithRelations);
@@ -162,7 +184,7 @@ export class ProductsService {
     const product = await this.productRepository.findOneBy({ id });
 
     if (!product) {
-      throw ApiException.notFound('Product was not found.');
+      throw ApiException.notFound("Product was not found.");
     }
 
     return this.toWire(product);
@@ -178,7 +200,7 @@ export class ProductsService {
 
     const product = await this.productRepository.save(
       this.productRepository.create({
-        id: createId('product'),
+        id: createId("product"),
         name: payload.name.trim(),
         slug: slugify(payload.name),
         sku: payload.sku.trim(),
@@ -196,18 +218,21 @@ export class ProductsService {
         specs: payload.specs,
         images,
         primaryImage,
-        condition: payload.condition
-      })
+        condition: payload.condition,
+      }),
     );
 
     return this.toWire(product);
   }
 
-  async updateProduct(id: string, payload: UpdateProductDto): Promise<ProductWire> {
+  async updateProduct(
+    id: string,
+    payload: UpdateProductDto,
+  ): Promise<ProductWire> {
     const existing = await this.productRepository.findOneBy({ id });
 
     if (!existing) {
-      throw ApiException.notFound('Product was not found.');
+      throw ApiException.notFound("Product was not found.");
     }
 
     if (payload.sku) {
@@ -222,10 +247,14 @@ export class ProductsService {
       this.assertValidSpecs(payload.specs);
     }
 
-    const nextImages = this.normalizeImageList(payload.images ?? existing.images);
+    const nextImages = this.normalizeImageList(
+      payload.images ?? existing.images,
+    );
     const nextPrimaryImage = this.resolvePrimaryImage(
-      payload.primaryImage === undefined ? existing.primaryImage : payload.primaryImage,
-      nextImages
+      payload.primaryImage === undefined
+        ? existing.primaryImage
+        : payload.primaryImage,
+      nextImages,
     );
     this.assertValidImages(nextImages, nextPrimaryImage ?? undefined);
 
@@ -243,14 +272,18 @@ export class ProductsService {
       price: payload.price ?? existing.price,
       costPrice: payload.costPrice ?? existing.costPrice,
       stockQty: payload.stockQty ?? existing.stockQty,
-      minStockQty: payload.minStockQty === undefined ? existing.minStockQty : payload.minStockQty,
+      minStockQty:
+        payload.minStockQty === undefined
+          ? existing.minStockQty
+          : payload.minStockQty,
       status: payload.status ?? existing.status,
-      shortDescription: payload.shortDescription?.trim() ?? existing.shortDescription,
+      shortDescription:
+        payload.shortDescription?.trim() ?? existing.shortDescription,
       description: payload.description?.trim() ?? existing.description,
       specs: payload.specs ?? existing.specs,
       images: nextImages,
       primaryImage: nextPrimaryImage,
-      condition: payload.condition ?? existing.condition
+      condition: payload.condition ?? existing.condition,
     });
 
     return this.toWire(product);
@@ -261,26 +294,31 @@ export class ProductsService {
       where: { id },
       relations: {
         inventoryMoves: true,
-        orderItems: true
-      }
+        orderItems: true,
+      },
     });
 
     if (!product) {
-      throw ApiException.notFound('Product was not found.');
+      throw ApiException.notFound("Product was not found.");
     }
 
     if (product.inventoryMoves.length > 0 || product.orderItems.length > 0) {
-      throw ApiException.conflict('Product cannot be deleted while linked orders or inventory movements exist.');
+      throw ApiException.conflict(
+        "Product cannot be deleted while linked orders or inventory movements exist.",
+      );
     }
 
     await this.productRepository.delete({ id });
   }
 
-  async addImage(id: string, payload: ProductImageDto): Promise<{ id: string; images: string[]; primaryImage: string | null }> {
+  async addImage(
+    id: string,
+    payload: ProductImageDto,
+  ): Promise<{ id: string; images: string[]; primaryImage: string | null }> {
     const product = await this.productRepository.findOneBy({ id });
 
     if (!product) {
-      throw ApiException.notFound('Product was not found.');
+      throw ApiException.notFound("Product was not found.");
     }
 
     const image = this.normalizeImagePath(payload.image);
@@ -289,7 +327,7 @@ export class ProductsService {
     const images = this.normalizeImageList(product.images);
 
     if (images.includes(image)) {
-      throw ApiException.conflict('Product image already exists.', 'image');
+      throw ApiException.conflict("Product image already exists.", "image");
     }
 
     const updated = await this.productRepository.save({
@@ -297,7 +335,7 @@ export class ProductsService {
       images: [...images, image],
       primaryImage: product.primaryImage
         ? this.normalizeImagePath(product.primaryImage)
-        : null
+        : null,
     });
 
     return {
@@ -305,35 +343,41 @@ export class ProductsService {
       images: this.normalizeImageList(updated.images),
       primaryImage: updated.primaryImage
         ? this.normalizeImagePath(updated.primaryImage)
-        : null
+        : null,
     };
   }
 
-  async setPrimaryImage(id: string, payload: ProductImageDto): Promise<{ id: string; primaryImage: string | null }> {
+  async setPrimaryImage(
+    id: string,
+    payload: ProductImageDto,
+  ): Promise<{ id: string; primaryImage: string | null }> {
     const product = await this.productRepository.findOneBy({ id });
 
     if (!product) {
-      throw ApiException.notFound('Product was not found.');
+      throw ApiException.notFound("Product was not found.");
     }
 
     const image = this.normalizeImagePath(payload.image);
     const images = this.normalizeImageList(product.images);
 
     if (!images.includes(image)) {
-      throw ApiException.validation('Primary image must belong to this product.', 'image');
+      throw ApiException.validation(
+        "Primary image must belong to this product.",
+        "image",
+      );
     }
 
     const updated = await this.productRepository.save({
       ...product,
       images,
-      primaryImage: image
+      primaryImage: image,
     });
 
     return {
       id: updated.id,
       primaryImage: updated.primaryImage
         ? this.normalizeImagePath(updated.primaryImage)
-        : null
+        : null,
     };
   }
 
@@ -341,38 +385,51 @@ export class ProductsService {
     return this.productRepository.find({
       where: {
         id: In(productIds),
-        status: ProductStatus.Active
-      }
+        status: ProductStatus.Active,
+      },
     });
   }
 
-  private async assertUniqueSku(sku: string, productId?: string): Promise<void> {
-    const existing = await this.productRepository.findOneBy({ sku: sku.trim() });
+  private async assertUniqueSku(
+    sku: string,
+    productId?: string,
+  ): Promise<void> {
+    const existing = await this.productRepository.findOneBy({
+      sku: sku.trim(),
+    });
 
     if (existing && existing.id !== productId) {
-      throw ApiException.conflict('Product SKU must be unique.', 'sku');
+      throw ApiException.conflict("Product SKU must be unique.", "sku");
     }
   }
 
   private async assertCategoryExists(categoryId: string): Promise<void> {
-    const category = await this.categoryRepository.findOneBy({ id: categoryId });
+    const category = await this.categoryRepository.findOneBy({
+      id: categoryId,
+    });
 
     if (!category) {
-      throw ApiException.validation('Category must exist.', 'categoryId');
+      throw ApiException.validation("Category must exist.", "categoryId");
     }
   }
 
   private assertValidSpecs(specs: Record<string, string>): void {
     for (const [key, value] of Object.entries(specs)) {
       if (!key.trim() || !String(value).trim()) {
-        throw ApiException.validation('All product specs must have non-empty keys and values.', 'specs');
+        throw ApiException.validation(
+          "All product specs must have non-empty keys and values.",
+          "specs",
+        );
       }
     }
   }
 
   private assertImageValue(image: string): void {
     if (!isAbsolutePathOrUrl(image)) {
-      throw ApiException.validation('Product image must be an absolute path or URL.', 'image');
+      throw ApiException.validation(
+        "Product image must be an absolute path or URL.",
+        "image",
+      );
     }
   }
 
@@ -386,7 +443,7 @@ export class ProductsService {
     }
 
     const trimmedValue = value.trim();
-    return trimmedValue === '' ? null : trimmedValue;
+    return trimmedValue === "" ? null : trimmedValue;
   }
 
   private normalizeImageList(images: string[]): string[] {
@@ -395,9 +452,13 @@ export class ProductsService {
 
   private resolvePrimaryImage(
     primaryImage: string | null | undefined,
-    images: string[]
+    images: string[],
   ): string | null {
-    if (primaryImage === undefined || primaryImage === null || primaryImage.trim() === '') {
+    if (
+      primaryImage === undefined ||
+      primaryImage === null ||
+      primaryImage.trim() === ""
+    ) {
       return images[0] ?? null;
     }
 
@@ -406,7 +467,10 @@ export class ProductsService {
 
   private assertValidImages(images: string[], primaryImage?: string): void {
     if (images.length === 0) {
-      throw ApiException.validation('Product must include at least one image.', 'images');
+      throw ApiException.validation(
+        "Product must include at least one image.",
+        "images",
+      );
     }
 
     images.forEach((image) => this.assertImageValue(image));
@@ -414,7 +478,10 @@ export class ProductsService {
     const resolvedPrimaryImage = primaryImage ?? images[0];
 
     if (!images.includes(resolvedPrimaryImage)) {
-      throw ApiException.validation('Primary image must belong to the product images list.', 'primaryImage');
+      throw ApiException.validation(
+        "Primary image must belong to the product images list.",
+        "primaryImage",
+      );
     }
   }
 
@@ -443,7 +510,7 @@ export class ProductsService {
         : null,
       condition: product.condition,
       createdAt: product.createdAt,
-      updatedAt: product.updatedAt
+      updatedAt: product.updatedAt,
     };
   }
 
@@ -469,9 +536,9 @@ export class ProductsService {
         id: product.category.id,
         name: product.category.name,
         slug: product.category.slug,
-        image: this.normalizeImagePath(product.category.image)
+        image: this.normalizeImagePath(product.category.image),
       },
-      brand: product.brand
+      brand: product.brand,
     };
   }
 }

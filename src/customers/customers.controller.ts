@@ -1,11 +1,21 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, Post, Put, UseGuards } from '@nestjs/common';
-import { SessionAuthGuard } from '../auth/guards/session-auth.guard';
-import { AdminOnlyGuard } from '../auth/guards/admin-only.guard';
-import { CreateCustomerDto } from './dto/create-customer.dto';
-import { UpdateCustomerDto } from './dto/update-customer.dto';
-import { CustomersService } from './customers.service';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Param,
+  Post,
+  Put,
+  UseGuards,
+} from "@nestjs/common";
+import { SessionAuthGuard } from "../auth/guards/session-auth.guard";
+import { AdminOnlyGuard } from "../auth/guards/admin-only.guard";
+import { CreateCustomerDto } from "./dto/create-customer.dto";
+import { UpdateCustomerDto } from "./dto/update-customer.dto";
+import { CustomersService } from "./customers.service";
 
-@Controller('customers')
+@Controller("customers")
 @UseGuards(SessionAuthGuard, AdminOnlyGuard)
 export class CustomersController {
   constructor(private readonly customersService: CustomersService) {}
@@ -21,15 +31,18 @@ export class CustomersController {
     return { customer };
   }
 
-  @Put(':id')
-  async updateCustomer(@Param('id') id: string, @Body() payload: UpdateCustomerDto) {
+  @Put(":id")
+  async updateCustomer(
+    @Param("id") id: string,
+    @Body() payload: UpdateCustomerDto,
+  ) {
     const customer = await this.customersService.updateCustomer(id, payload);
     return { customer };
   }
 
-  @Delete(':id')
+  @Delete(":id")
   @HttpCode(204)
-  async deleteCustomer(@Param('id') id: string): Promise<void> {
+  async deleteCustomer(@Param("id") id: string): Promise<void> {
     await this.customersService.deleteCustomer(id);
   }
 }

@@ -1,5 +1,12 @@
-import { IsBoolean, IsEnum, IsInt, IsOptional, IsString, MinLength } from 'class-validator';
-import { OrderStatus } from '../../common/enums/order-status.enum';
+import {
+  IsBoolean,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  MinLength,
+} from "class-validator";
+import { OrderStatus } from "../../common/enums/order-status.enum";
 
 export class UpdateOrderStatusDto {
   @IsEnum(OrderStatus)

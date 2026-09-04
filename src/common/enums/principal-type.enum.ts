@@ -1,4 +1,4 @@
 export enum PrincipalType {
-  Employee = 'employee',
-  Customer = 'customer'
+  Employee = "employee",
+  Customer = "customer",
 }

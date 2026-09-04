@@ -1,5 +1,5 @@
 export enum ActorType {
-  System = 'system',
-  Employee = 'employee',
-  Customer = 'customer'
+  System = "system",
+  Employee = "employee",
+  Customer = "customer",
 }

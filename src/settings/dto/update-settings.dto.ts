@@ -1,6 +1,13 @@
-import { Type } from 'class-transformer';
-import { IsEnum, IsInt, IsNumber, IsString, Length, Min } from 'class-validator';
-import { ProductStatus } from '../../common/enums/product-status.enum';
+import { Type } from "class-transformer";
+import {
+  IsEnum,
+  IsInt,
+  IsNumber,
+  IsString,
+  Length,
+  Min,
+} from "class-validator";
+import { ProductStatus } from "../../common/enums/product-status.enum";
 
 export class UpdateSettingsDto {
   @IsString()

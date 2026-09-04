@@ -1,5 +1,5 @@
 export function isAbsolutePathOrUrl(value: string): boolean {
-  if (value.startsWith('/')) {
+  if (value.startsWith("/")) {
     return true;
   }
 

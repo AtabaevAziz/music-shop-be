@@ -1,5 +1,5 @@
-import { Type } from 'class-transformer';
-import { IsInt, IsString, MinLength } from 'class-validator';
+import { Type } from "class-transformer";
+import { IsInt, IsString, MinLength } from "class-validator";
 
 export class InventoryAdjustmentDto {
   @IsString()
@@ -13,4 +13,3 @@ export class InventoryAdjustmentDto {
   @MinLength(3)
   reason!: string;
 }
-

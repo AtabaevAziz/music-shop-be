@@ -1,15 +1,15 @@
-import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { ProductStatus } from '../common/enums/product-status.enum';
-import { BusinessSettingsEntity } from '../database/entities';
-import { UpdateSettingsDto } from './dto/update-settings.dto';
+import { Injectable } from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { ProductStatus } from "../common/enums/product-status.enum";
+import { BusinessSettingsEntity } from "../database/entities";
+import { UpdateSettingsDto } from "./dto/update-settings.dto";
 
 @Injectable()
 export class SettingsService {
   constructor(
     @InjectRepository(BusinessSettingsEntity)
-    private readonly settingsRepository: Repository<BusinessSettingsEntity>
+    private readonly settingsRepository: Repository<BusinessSettingsEntity>,
   ) {}
 
   async getSettings(): Promise<{
@@ -24,7 +24,7 @@ export class SettingsService {
       currency: settings.currency,
       lowStockThreshold: settings.lowStockThreshold,
       defaultProductStatus: settings.defaultProductStatus,
-      defaultMarkupPercent: Number(settings.defaultMarkupPercent)
+      defaultMarkupPercent: Number(settings.defaultMarkupPercent),
     };
   }
 
@@ -42,19 +42,21 @@ export class SettingsService {
       currency: normalizedCurrency,
       lowStockThreshold: payload.lowStockThreshold,
       defaultProductStatus: payload.defaultProductStatus,
-      defaultMarkupPercent: payload.defaultMarkupPercent
+      defaultMarkupPercent: payload.defaultMarkupPercent,
     });
 
     return {
       currency: settings.currency,
       lowStockThreshold: settings.lowStockThreshold,
       defaultProductStatus: settings.defaultProductStatus,
-      defaultMarkupPercent: Number(settings.defaultMarkupPercent)
+      defaultMarkupPercent: Number(settings.defaultMarkupPercent),
     };
   }
 
   private async ensureSettings(): Promise<BusinessSettingsEntity> {
-    const existing = await this.settingsRepository.findOneBy({ id: 'business-settings' });
+    const existing = await this.settingsRepository.findOneBy({
+      id: "business-settings",
+    });
 
     if (existing) {
       return existing;
@@ -62,12 +64,12 @@ export class SettingsService {
 
     return this.settingsRepository.save(
       this.settingsRepository.create({
-        id: 'business-settings',
-        currency: 'UZS',
+        id: "business-settings",
+        currency: "UZS",
         lowStockThreshold: 3,
         defaultProductStatus: ProductStatus.Draft,
-        defaultMarkupPercent: 28
-      })
+        defaultMarkupPercent: 28,
+      }),
     );
   }
 }

@@ -1,7 +1,7 @@
-import { ArgumentMetadata, Injectable, PipeTransform } from '@nestjs/common';
+import { ArgumentMetadata, Injectable, PipeTransform } from "@nestjs/common";
 
 function trimValue(value: unknown): unknown {
-  if (typeof value === 'string') {
+  if (typeof value === "string") {
     return value.trim();
   }
 
@@ -9,12 +9,11 @@ function trimValue(value: unknown): unknown {
     return value.map((item) => trimValue(item));
   }
 
-  if (value && typeof value === 'object' && !(value instanceof Date)) {
+  if (value && typeof value === "object" && !(value instanceof Date)) {
     return Object.fromEntries(
-      Object.entries(value as Record<string, unknown>).map(([key, itemValue]) => [
-        key,
-        trimValue(itemValue)
-      ])
+      Object.entries(value as Record<string, unknown>).map(
+        ([key, itemValue]) => [key, trimValue(itemValue)],
+      ),
     );
   }
 
@@ -24,7 +23,7 @@ function trimValue(value: unknown): unknown {
 @Injectable()
 export class TrimInputPipe implements PipeTransform {
   transform(value: unknown, metadata: ArgumentMetadata): unknown {
-    if (!['body', 'query', 'param'].includes(metadata.type)) {
+    if (!["body", "query", "param"].includes(metadata.type)) {
       return value;
     }
 

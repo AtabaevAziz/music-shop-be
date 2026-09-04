@@ -1,14 +1,14 @@
-import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { ApiException } from '../common/exceptions/api.exception';
-import { createId } from '../common/utils/id.util';
-import { normalizeMediaPath } from '../common/utils/media.util';
-import { slugify } from '../common/utils/slug.util';
-import { isAbsolutePathOrUrl } from '../common/utils/url.util';
-import { CategoryEntity } from '../database/entities';
-import { CreateCategoryDto } from './dto/create-category.dto';
-import { UpdateCategoryDto } from './dto/update-category.dto';
+import { Injectable } from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { ApiException } from "../common/exceptions/api.exception";
+import { createId } from "../common/utils/id.util";
+import { normalizeMediaPath } from "../common/utils/media.util";
+import { slugify } from "../common/utils/slug.util";
+import { isAbsolutePathOrUrl } from "../common/utils/url.util";
+import { CategoryEntity } from "../database/entities";
+import { CreateCategoryDto } from "./dto/create-category.dto";
+import { UpdateCategoryDto } from "./dto/update-category.dto";
 
 type CategoryWire = {
   id: string;
@@ -29,22 +29,22 @@ type CategoryWithCount = CategoryEntity & {
 export class CategoriesService {
   constructor(
     @InjectRepository(CategoryEntity)
-    private readonly categoryRepository: Repository<CategoryEntity>
+    private readonly categoryRepository: Repository<CategoryEntity>,
   ) {}
 
   async listCategories(): Promise<CategoryWire[]> {
     const categories = await this.categoryRepository.find({
       relations: {
-        products: true
+        products: true,
       },
-      order: { name: 'ASC' }
+      order: { name: "ASC" },
     });
 
     return categories.map((category) =>
       this.toWire({
         ...category,
-        productCount: category.products.length
-      })
+        productCount: category.products.length,
+      }),
     );
   }
 
@@ -56,27 +56,31 @@ export class CategoriesService {
     this.assertImageValue(image);
     const category = await this.categoryRepository.save(
       this.categoryRepository.create({
-        id: createId('category', slug),
+        id: createId("category", slug),
         name: payload.name.trim(),
         slug,
         parentId: payload.parentId ?? null,
         image,
         status: payload.status.trim(),
-        description: payload.description.trim()
-      })
+        description: payload.description.trim(),
+      }),
     );
 
     return this.toWire(category);
   }
 
-  async updateCategory(id: string, payload: UpdateCategoryDto): Promise<CategoryWire> {
+  async updateCategory(
+    id: string,
+    payload: UpdateCategoryDto,
+  ): Promise<CategoryWire> {
     const existing = await this.categoryRepository.findOneBy({ id });
 
     if (!existing) {
-      throw ApiException.notFound('Category was not found.');
+      throw ApiException.notFound("Category was not found.");
     }
 
-    const nextParentId = payload.parentId === undefined ? existing.parentId : payload.parentId;
+    const nextParentId =
+      payload.parentId === undefined ? existing.parentId : payload.parentId;
     await this.assertValidParent(nextParentId ?? null, existing.id);
     await this.assertNoCycle(existing.id, nextParentId ?? null);
 
@@ -97,7 +101,7 @@ export class CategoriesService {
       parentId: nextParentId ?? null,
       image,
       status: payload.status?.trim() ?? existing.status,
-      description: payload.description?.trim() ?? existing.description
+      description: payload.description?.trim() ?? existing.description,
     });
 
     return this.toWire(category);
@@ -108,72 +112,96 @@ export class CategoriesService {
       where: { id },
       relations: {
         children: true,
-        products: true
-      }
+        products: true,
+      },
     });
 
     if (!existing) {
-      throw ApiException.notFound('Category was not found.');
+      throw ApiException.notFound("Category was not found.");
     }
 
     if (existing.children.length > 0) {
-      throw ApiException.conflict('Category cannot be deleted while it has child categories.');
+      throw ApiException.conflict(
+        "Category cannot be deleted while it has child categories.",
+      );
     }
 
     if (existing.products.length > 0) {
-      throw ApiException.conflict('Category cannot be deleted while linked products exist.');
+      throw ApiException.conflict(
+        "Category cannot be deleted while linked products exist.",
+      );
     }
 
     await this.categoryRepository.delete({ id });
   }
 
-  private async assertValidParent(parentId: string | null, selfId?: string): Promise<void> {
+  private async assertValidParent(
+    parentId: string | null,
+    selfId?: string,
+  ): Promise<void> {
     if (!parentId) {
       return;
     }
 
     if (selfId && parentId === selfId) {
-      throw ApiException.validation('Category cannot be a parent of itself.', 'parentId');
+      throw ApiException.validation(
+        "Category cannot be a parent of itself.",
+        "parentId",
+      );
     }
 
     const parent = await this.categoryRepository.findOneBy({ id: parentId });
 
     if (!parent) {
-      throw ApiException.validation('Parent category must exist.', 'parentId');
+      throw ApiException.validation("Parent category must exist.", "parentId");
     }
   }
 
-  private async assertNoCycle(categoryId: string, parentId: string | null): Promise<void> {
+  private async assertNoCycle(
+    categoryId: string,
+    parentId: string | null,
+  ): Promise<void> {
     let cursor = parentId;
 
     while (cursor) {
       if (cursor === categoryId) {
-        throw ApiException.validation('Category parent creates a cycle.', 'parentId');
+        throw ApiException.validation(
+          "Category parent creates a cycle.",
+          "parentId",
+        );
       }
 
       const parent = await this.categoryRepository.findOne({
         where: { id: cursor },
         select: {
-          parentId: true
-        }
+          parentId: true,
+        },
       });
 
       cursor = parent?.parentId ?? null;
     }
   }
 
-  private async generateUniqueSlug(name: string, categoryId?: string): Promise<string> {
+  private async generateUniqueSlug(
+    name: string,
+    categoryId?: string,
+  ): Promise<string> {
     const baseSlug = slugify(name);
 
     if (!baseSlug) {
-      throw ApiException.validation('Category name must contain letters or numbers.', 'name');
+      throw ApiException.validation(
+        "Category name must contain letters or numbers.",
+        "name",
+      );
     }
 
     let candidate = baseSlug;
     let sequence = 2;
 
     while (true) {
-      const existing = await this.categoryRepository.findOneBy({ slug: candidate });
+      const existing = await this.categoryRepository.findOneBy({
+        slug: candidate,
+      });
 
       if (!existing || existing.id === categoryId) {
         return candidate;
@@ -186,7 +214,10 @@ export class CategoriesService {
 
   private assertImageValue(image: string): void {
     if (!isAbsolutePathOrUrl(image)) {
-      throw ApiException.validation('Category image must be an absolute path or URL.', 'image');
+      throw ApiException.validation(
+        "Category image must be an absolute path or URL.",
+        "image",
+      );
     }
   }
 
@@ -203,7 +234,7 @@ export class CategoriesService {
       image: this.normalizeImagePath(category.image),
       status: category.status,
       description: category.description,
-      productCount: 'productCount' in category ? category.productCount : 0
+      productCount: "productCount" in category ? category.productCount : 0,
     };
   }
 }

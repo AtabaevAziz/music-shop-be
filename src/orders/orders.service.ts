@@ -1,18 +1,25 @@
-import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Brackets, DataSource, EntityManager, In, Like, Repository } from 'typeorm';
-import { ActorType } from '../common/enums/actor-type.enum';
-import { DeliveryMethod } from '../common/enums/delivery-method.enum';
-import { DeliveryStatus } from '../common/enums/delivery-status.enum';
-import { InventoryMovementType } from '../common/enums/inventory-movement-type.enum';
-import { OrderStatus } from '../common/enums/order-status.enum';
-import { PackagingStatus } from '../common/enums/packaging-status.enum';
-import { PaymentMethod } from '../common/enums/payment-method.enum';
-import { PaymentStatus } from '../common/enums/payment-status.enum';
-import { ApiException } from '../common/exceptions/api.exception';
-import { ORDER_STATUS_TRANSITIONS } from '../common/constants/workflow.constants';
-import { createId } from '../common/utils/id.util';
-import { getNextSequentialPrefixedId } from '../common/utils/sequential-id.util';
+import { Injectable } from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import {
+  Brackets,
+  DataSource,
+  EntityManager,
+  In,
+  Like,
+  Repository,
+} from "typeorm";
+import { ActorType } from "../common/enums/actor-type.enum";
+import { DeliveryMethod } from "../common/enums/delivery-method.enum";
+import { DeliveryStatus } from "../common/enums/delivery-status.enum";
+import { InventoryMovementType } from "../common/enums/inventory-movement-type.enum";
+import { OrderStatus } from "../common/enums/order-status.enum";
+import { PackagingStatus } from "../common/enums/packaging-status.enum";
+import { PaymentMethod } from "../common/enums/payment-method.enum";
+import { PaymentStatus } from "../common/enums/payment-status.enum";
+import { ApiException } from "../common/exceptions/api.exception";
+import { ORDER_STATUS_TRANSITIONS } from "../common/constants/workflow.constants";
+import { createId } from "../common/utils/id.util";
+import { getNextSequentialPrefixedId } from "../common/utils/sequential-id.util";
 import {
   ActivityEntity,
   CustomerEntity,
@@ -23,12 +30,12 @@ import {
   OrderStatusHistoryEntity,
   PackagingDetailEntity,
   PaymentEntity,
-  ProductEntity
-} from '../database/entities';
-import { CreateClientOrderDto } from './dto/create-client-order.dto';
-import { StubPaymentWebhookDto } from './dto/stub-payment-webhook.dto';
-import { UpdateOrderPaymentDto } from './dto/update-order-payment.dto';
-import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
+  ProductEntity,
+} from "../database/entities";
+import { CreateClientOrderDto } from "./dto/create-client-order.dto";
+import { StubPaymentWebhookDto } from "./dto/stub-payment-webhook.dto";
+import { UpdateOrderPaymentDto } from "./dto/update-order-payment.dto";
+import { UpdateOrderStatusDto } from "./dto/update-order-status.dto";
 
 type OrderFilters = {
   status?: string;
@@ -38,7 +45,7 @@ type OrderFilters = {
   limit?: number;
 };
 
-type CheckoutItemInput = CreateClientOrderDto['items'][number];
+type CheckoutItemInput = CreateClientOrderDto["items"][number];
 
 type OrderRecord = OrderEntity & {
   items: OrderItemEntity[];
@@ -74,13 +81,13 @@ type PackagingMeta = {
 };
 
 type OrderStage =
-  | 'intake'
-  | 'payment'
-  | 'warehouse'
-  | 'packing'
-  | 'shipment'
-  | 'completed'
-  | 'exception';
+  | "intake"
+  | "payment"
+  | "warehouse"
+  | "packing"
+  | "shipment"
+  | "completed"
+  | "exception";
 
 type CreateCheckoutPayload = {
   customerId: string;
@@ -99,7 +106,7 @@ type CreateCheckoutPayload = {
   deliveryMethod: DeliveryMethod;
   deliveryCompany?: string;
   notes?: string;
-  items: CreateClientOrderDto['items'];
+  items: CreateClientOrderDto["items"];
 };
 
 type OrderWire = {
@@ -173,7 +180,7 @@ type OrderWire = {
     changedAt: Date;
   }>;
   timeline: Array<{
-    type: 'status' | 'payment' | 'delivery';
+    type: "status" | "payment" | "delivery";
     status: string;
     happenedAt: Date;
     comment: string | null;
@@ -198,36 +205,50 @@ export class OrdersService {
     @InjectRepository(OrderEntity)
     private readonly orderRepository: Repository<OrderEntity>,
     @InjectRepository(CustomerEntity)
-    private readonly customerRepository: Repository<CustomerEntity>
+    private readonly customerRepository: Repository<CustomerEntity>,
   ) {}
 
   async listOrders(filters: OrderFilters = {}): Promise<OrderWire[]> {
     const query = this.buildOrderRecordQuery();
 
     if (filters.status) {
-      query.andWhere('orderRecord.status = :status', { status: filters.status });
+      query.andWhere("orderRecord.status = :status", {
+        status: filters.status,
+      });
     }
 
     if (filters.paymentStatus) {
-      query.andWhere('orderRecord.paymentStatus = :paymentStatus', { paymentStatus: filters.paymentStatus });
+      query.andWhere("orderRecord.paymentStatus = :paymentStatus", {
+        paymentStatus: filters.paymentStatus,
+      });
     }
 
     if (filters.customerId) {
-      query.andWhere('orderRecord.customerId = :customerId', { customerId: filters.customerId });
+      query.andWhere("orderRecord.customerId = :customerId", {
+        customerId: filters.customerId,
+      });
     }
 
     if (filters.search) {
       query.andWhere(
         new Brackets((builder) => {
           builder
-            .where('orderRecord.orderNumber ILIKE :search', { search: `%${filters.search}%` })
-            .orWhere('orderRecord.customerNameSnapshot ILIKE :search', { search: `%${filters.search}%` })
-            .orWhere('orderRecord.phoneSnapshot ILIKE :search', { search: `%${filters.search}%` });
-        })
+            .where("orderRecord.orderNumber ILIKE :search", {
+              search: `%${filters.search}%`,
+            })
+            .orWhere("orderRecord.customerNameSnapshot ILIKE :search", {
+              search: `%${filters.search}%`,
+            })
+            .orWhere("orderRecord.phoneSnapshot ILIKE :search", {
+              search: `%${filters.search}%`,
+            });
+        }),
       );
     }
 
-    query.orderBy('orderRecord.createdAt', 'DESC').addOrderBy('statusHistory.changedAt', 'ASC');
+    query
+      .orderBy("orderRecord.createdAt", "DESC")
+      .addOrderBy("statusHistory.changedAt", "ASC");
 
     if (filters.limit) {
       query.take(filters.limit);
@@ -235,53 +256,66 @@ export class OrdersService {
 
     const orders = await query.getMany();
 
-    return orders.map((order) => this.toWire(this.normalizeLoadedOrder(order as OrderRecord)));
+    return orders.map((order) =>
+      this.toWire(this.normalizeLoadedOrder(order as OrderRecord)),
+    );
   }
 
   async getOrderById(id: string): Promise<OrderWire> {
     const order = await this.loadOrderById(id);
 
     if (!order) {
-      throw ApiException.notFound('Order was not found.');
+      throw ApiException.notFound("Order was not found.");
     }
 
     return this.toWire(order);
   }
 
-  async getOrderByOrderNumber(orderNumber: string, verifier?: { phone?: string; email?: string }): Promise<OrderWire> {
+  async getOrderByOrderNumber(
+    orderNumber: string,
+    verifier?: { phone?: string; email?: string },
+  ): Promise<OrderWire> {
     const phone = verifier?.phone?.trim();
     const email = verifier?.email?.trim().toLowerCase();
 
     if (!phone && !email) {
-      throw ApiException.validation('Phone or email is required to verify the order.', 'phone');
+      throw ApiException.validation(
+        "Phone or email is required to verify the order.",
+        "phone",
+      );
     }
 
     const order = await this.loadOrderByOrderNumber(orderNumber);
 
     if (!order) {
-      throw ApiException.notFound('Order was not found.');
+      throw ApiException.notFound("Order was not found.");
     }
 
     if (phone && order.phoneSnapshot !== phone) {
-      throw ApiException.forbidden('Order verification failed.');
+      throw ApiException.forbidden("Order verification failed.");
     }
 
     if (email && order.emailSnapshot !== email) {
-      throw ApiException.forbidden('Order verification failed.');
+      throw ApiException.forbidden("Order verification failed.");
     }
 
     return this.toWire(order);
   }
 
-  async createClientOrder(customerId: string, payload: CreateClientOrderDto): Promise<OrderWire> {
-    const customer = await this.customerRepository.findOneBy({ id: customerId });
+  async createClientOrder(
+    customerId: string,
+    payload: CreateClientOrderDto,
+  ): Promise<OrderWire> {
+    const customer = await this.customerRepository.findOneBy({
+      id: customerId,
+    });
 
     if (!customer) {
-      throw ApiException.notFound('Customer was not found.');
+      throw ApiException.notFound("Customer was not found.");
     }
 
-    if (customer.status !== 'active') {
-      throw ApiException.forbidden('Client is inactive.');
+    if (customer.status !== "active") {
+      throw ApiException.forbidden("Client is inactive.");
     }
 
     return this.createCheckoutOrder({
@@ -301,7 +335,7 @@ export class OrdersService {
       deliveryMethod: payload.deliveryMethod,
       deliveryCompany: payload.deliveryCompany,
       notes: payload.comment,
-      items: payload.items
+      items: payload.items,
     });
   }
 
@@ -309,12 +343,16 @@ export class OrdersService {
     return this.createCheckoutOrder(payload);
   }
 
-  async updateOrderStatus(id: string, payload: UpdateOrderStatusDto, actor?: { employeeId?: string }): Promise<OrderWire> {
+  async updateOrderStatus(
+    id: string,
+    payload: UpdateOrderStatusDto,
+    actor?: { employeeId?: string },
+  ): Promise<OrderWire> {
     return this.dataSource.transaction(async (manager) => {
       const order = await this.loadOrderById(id, manager);
 
       if (!order) {
-        throw ApiException.notFound('Order was not found.');
+        throw ApiException.notFound("Order was not found.");
       }
 
       const currentStatus = order.status;
@@ -322,29 +360,41 @@ export class OrdersService {
       const allowedTransitions = ORDER_STATUS_TRANSITIONS[currentStatus] ?? [];
 
       if (!allowedTransitions.includes(nextStatus)) {
-        throw ApiException.invalidTransition('Order status transition is not allowed.');
+        throw ApiException.invalidTransition(
+          "Order status transition is not allowed.",
+        );
       }
 
-      await this.applyOrderStatusSideEffects(manager, order, nextStatus, payload, {
-        changedById: actor?.employeeId
-      });
+      await this.applyOrderStatusSideEffects(
+        manager,
+        order,
+        nextStatus,
+        payload,
+        {
+          changedById: actor?.employeeId,
+        },
+      );
 
       const updatedOrder = await this.loadOrderById(id, manager);
 
       if (!updatedOrder) {
-        throw ApiException.notFound('Order was not found after update.');
+        throw ApiException.notFound("Order was not found after update.");
       }
 
       return this.toWire(updatedOrder);
     });
   }
 
-  async updateOrderPayment(id: string, payload: UpdateOrderPaymentDto, actor?: { employeeId?: string }): Promise<OrderWire> {
+  async updateOrderPayment(
+    id: string,
+    payload: UpdateOrderPaymentDto,
+    actor?: { employeeId?: string },
+  ): Promise<OrderWire> {
     return this.dataSource.transaction(async (manager) => {
       const order = await this.loadOrderById(id, manager);
 
       if (!order) {
-        throw ApiException.notFound('Order was not found.');
+        throw ApiException.notFound("Order was not found.");
       }
 
       await this.applyPaymentStatusUpdate(
@@ -354,30 +404,33 @@ export class OrdersService {
         {
           changedByType: ActorType.Employee,
           changedById: actor?.employeeId,
-          comment: payload.comment
+          comment: payload.comment,
         },
         {
           provider: payload.provider,
-          transactionId: payload.transactionId
-        }
+          transactionId: payload.transactionId,
+        },
       );
 
       const updatedOrder = await this.loadOrderById(id, manager);
 
       if (!updatedOrder) {
-        throw ApiException.notFound('Order was not found after update.');
+        throw ApiException.notFound("Order was not found after update.");
       }
 
       return this.toWire(updatedOrder);
     });
   }
 
-  async handleStubPaymentWebhook(orderId: string, payload: StubPaymentWebhookDto): Promise<OrderWire> {
+  async handleStubPaymentWebhook(
+    orderId: string,
+    payload: StubPaymentWebhookDto,
+  ): Promise<OrderWire> {
     return this.dataSource.transaction(async (manager) => {
       const order = await this.loadOrderById(orderId, manager);
 
       if (!order) {
-        throw ApiException.notFound('Order was not found.');
+        throw ApiException.notFound("Order was not found.");
       }
 
       await this.applyPaymentStatusUpdate(
@@ -386,37 +439,45 @@ export class OrdersService {
         payload.paymentStatus,
         {
           changedByType: ActorType.System,
-          comment: 'Stub payment gateway callback'
+          comment: "Stub payment gateway callback",
         },
         {
-          provider: 'stub-gateway',
-          transactionId: payload.transactionId ?? `stub-${Date.now()}`
-        }
+          provider: "stub-gateway",
+          transactionId: payload.transactionId ?? `stub-${Date.now()}`,
+        },
       );
 
       const updatedOrder = await this.loadOrderById(orderId, manager);
 
       if (!updatedOrder) {
-        throw ApiException.notFound('Order was not found after webhook update.');
+        throw ApiException.notFound(
+          "Order was not found after webhook update.",
+        );
       }
 
       return this.toWire(updatedOrder);
     });
   }
 
-  private async createCheckoutOrder(payload: CreateCheckoutPayload): Promise<OrderWire> {
+  private async createCheckoutOrder(
+    payload: CreateCheckoutPayload,
+  ): Promise<OrderWire> {
     return this.dataSource.transaction(async (manager) => {
       this.validateDeliverySelection(payload);
-      const products = await this.loadProductsForCheckout(manager, payload.items);
+      const products = await this.loadProductsForCheckout(
+        manager,
+        payload.items,
+      );
       const stockDemand = this.getStockDemand(payload.items);
 
       for (const [productId, requestedQty] of stockDemand.entries()) {
         const product = products.get(productId);
-        const availableQty = (product?.stockQty ?? 0) - (product?.reservedQty ?? 0);
+        const availableQty =
+          (product?.stockQty ?? 0) - (product?.reservedQty ?? 0);
 
         if (!product || availableQty < requestedQty) {
           throw ApiException.conflict(
-            `Only ${Math.max(availableQty, 0)} item(s) available for ${product?.name ?? productId}.`
+            `Only ${Math.max(availableQty, 0)} item(s) available for ${product?.name ?? productId}.`,
           );
         }
       }
@@ -428,7 +489,7 @@ export class OrdersService {
       const deliveryCost = this.resolveDeliveryCost(payload.deliveryMethod);
       const total = subtotal + deliveryCost;
       const createdAt = new Date();
-      const orderId = createId('order');
+      const orderId = createId("order");
       const orderNumber = await this.allocateOrderNumber(manager);
       const contactSnapshot = this.buildContactSnapshot(payload);
       const addressSnapshot = this.buildAddressSnapshot(payload);
@@ -438,7 +499,9 @@ export class OrdersService {
       const paymentRepository = manager.getRepository(PaymentEntity);
       const deliveryRepository = manager.getRepository(DeliveryEntity);
       const packagingRepository = manager.getRepository(PackagingDetailEntity);
-      const statusHistoryRepository = manager.getRepository(OrderStatusHistoryEntity);
+      const statusHistoryRepository = manager.getRepository(
+        OrderStatusHistoryEntity,
+      );
       const productRepository = manager.getRepository(ProductEntity);
       const movementRepository = manager.getRepository(InventoryMovementEntity);
 
@@ -450,18 +513,19 @@ export class OrdersService {
           customerNameSnapshot: contactSnapshot.name,
           phoneSnapshot: contactSnapshot.phone,
           emailSnapshot: contactSnapshot.email,
-          deliveryAddressSnapshot: this.serializeAddressSnapshot(addressSnapshot),
+          deliveryAddressSnapshot:
+            this.serializeAddressSnapshot(addressSnapshot),
           paymentMethod: payload.paymentMethod,
           paymentStatus: PaymentStatus.Pending,
           deliveryMethod: payload.deliveryMethod,
           status: OrderStatus.New,
-          notes: payload.notes?.trim() ?? '',
+          notes: payload.notes?.trim() ?? "",
           subtotal,
           deliveryCost,
           total,
           createdAt,
-          updatedAt: createdAt
-        })
+          updatedAt: createdAt,
+        }),
       );
 
       await orderItemRepository.save(
@@ -470,36 +534,39 @@ export class OrdersService {
           const quantity = this.getItemQuantity(item);
 
           return orderItemRepository.create({
-            id: createId('order-item'),
+            id: createId("order-item"),
             orderId,
             productId: product.id,
             productName: product.name,
             quantity,
             unitPrice: product.price,
-            totalPrice: product.price * quantity
+            totalPrice: product.price * quantity,
           });
-        })
+        }),
       );
 
       await paymentRepository.save(
         paymentRepository.create({
-          id: createId('payment'),
+          id: createId("payment"),
           orderId,
           method: payload.paymentMethod,
           status: PaymentStatus.Pending,
           amount: total,
-          provider: payload.paymentMethod === PaymentMethod.Online ? 'stub-gateway' : null,
+          provider:
+            payload.paymentMethod === PaymentMethod.Online
+              ? "stub-gateway"
+              : null,
           transactionId: null,
           providerPayload: null,
           paidAt: null,
           createdAt,
-          updatedAt: createdAt
-        })
+          updatedAt: createdAt,
+        }),
       );
 
       await deliveryRepository.save(
         deliveryRepository.create({
-          id: createId('delivery'),
+          id: createId("delivery"),
           orderId,
           method: payload.deliveryMethod,
           company: payload.deliveryCompany?.trim() ?? null,
@@ -510,13 +577,13 @@ export class OrdersService {
           shippedAt: null,
           deliveredAt: null,
           createdAt,
-          updatedAt: createdAt
-        })
+          updatedAt: createdAt,
+        }),
       );
 
       await packagingRepository.save(
         packagingRepository.create({
-          id: createId('packaging'),
+          id: createId("packaging"),
           orderId,
           status: PackagingStatus.NotStarted,
           packedAt: null,
@@ -527,21 +594,21 @@ export class OrdersService {
           packageType: null,
           comment: null,
           createdAt,
-          updatedAt: createdAt
-        })
+          updatedAt: createdAt,
+        }),
       );
 
       await statusHistoryRepository.save(
         statusHistoryRepository.create({
-          id: createId('status-history'),
+          id: createId("status-history"),
           orderId,
           oldStatus: null,
           newStatus: OrderStatus.New,
           changedByType: ActorType.System,
           changedById: null,
-          comment: 'Order created',
-          changedAt: createdAt
-        })
+          comment: "Order created",
+          changedAt: createdAt,
+        }),
       );
 
       for (const [productId, qty] of stockDemand.entries()) {
@@ -549,37 +616,37 @@ export class OrdersService {
 
         await productRepository.save({
           ...product,
-          reservedQty: product.reservedQty + qty
+          reservedQty: product.reservedQty + qty,
         });
 
         await movementRepository.save(
           movementRepository.create({
-            id: createId('movement'),
+            id: createId("movement"),
             productId,
             delta: 0,
             type: InventoryMovementType.Reserve,
             reason: `Reserved ${qty} item(s) for order ${orderNumber}`,
-            referenceType: 'order',
+            referenceType: "order",
             referenceId: orderId,
-            createdAt
-          })
+            createdAt,
+          }),
         );
       }
 
       await this.recordActivity(
         manager,
-        'activity.orderCreated',
+        "activity.orderCreated",
         {
           orderNumber,
-          customerId: payload.customerId
+          customerId: payload.customerId,
         },
-        createdAt
+        createdAt,
       );
 
       const order = await this.loadOrderById(orderId, manager);
 
       if (!order) {
-        throw ApiException.notFound('Order was not found after creation.');
+        throw ApiException.notFound("Order was not found after creation.");
       }
 
       return this.toWire(order);
@@ -591,7 +658,7 @@ export class OrdersService {
     order: OrderRecord,
     nextStatus: OrderStatus,
     payload: UpdateOrderStatusDto,
-    actor?: { changedById?: string }
+    actor?: { changedById?: string },
   ): Promise<void> {
     const now = new Date();
     const packagingRepository = manager.getRepository(PackagingDetailEntity);
@@ -599,33 +666,54 @@ export class OrdersService {
     const productRepository = manager.getRepository(ProductEntity);
     const movementRepository = manager.getRepository(InventoryMovementEntity);
     const orderRepository = manager.getRepository(OrderEntity);
-    const statusHistoryRepository = manager.getRepository(OrderStatusHistoryEntity);
-    const packagingMeta = this.mergePackagingMeta(order.packaging?.comment ?? null, payload);
-    const dimensionValue = this.buildDimensionsValue(payload, order.packaging?.dimensions ?? null);
+    const statusHistoryRepository = manager.getRepository(
+      OrderStatusHistoryEntity,
+    );
+    const packagingMeta = this.mergePackagingMeta(
+      order.packaging?.comment ?? null,
+      payload,
+    );
+    const dimensionValue = this.buildDimensionsValue(
+      payload,
+      order.packaging?.dimensions ?? null,
+    );
     const carrier =
-      payload.carrier?.trim() || payload.deliveryCompany?.trim() || order.delivery?.company || null;
+      payload.carrier?.trim() ||
+      payload.deliveryCompany?.trim() ||
+      order.delivery?.company ||
+      null;
 
     if (nextStatus === OrderStatus.Cancelled) {
-      await this.releaseReservations(manager, order, `Order ${order.orderNumber} cancelled`, now);
+      await this.releaseReservations(
+        manager,
+        order,
+        `Order ${order.orderNumber} cancelled`,
+        now,
+      );
       await this.applyPaymentStatusUpdate(
         manager,
         order,
-        order.paymentStatus === PaymentStatus.Paid ? PaymentStatus.Refunded : PaymentStatus.Cancelled,
+        order.paymentStatus === PaymentStatus.Paid
+          ? PaymentStatus.Refunded
+          : PaymentStatus.Cancelled,
         {
           changedByType: ActorType.Employee,
           changedById: actor?.changedById,
-          comment: payload.comment ?? 'Order cancelled'
+          comment: payload.comment ?? "Order cancelled",
         },
         {},
-        true
+        true,
       );
     }
 
-    if ([OrderStatus.Picking, OrderStatus.Packing].includes(nextStatus) && order.packaging) {
+    if (
+      [OrderStatus.Picking, OrderStatus.Packing].includes(nextStatus) &&
+      order.packaging
+    ) {
       await packagingRepository.save({
         ...order.packaging,
         status: PackagingStatus.InProgress,
-        updatedAt: now
+        updatedAt: now,
       });
     }
 
@@ -640,11 +728,15 @@ export class OrdersService {
         comment: this.serializePackagingMeta(packagingMeta),
         packedAt: now,
         employeeId: actor?.changedById ?? null,
-        updatedAt: now
+        updatedAt: now,
       });
     }
 
-    if (nextStatus === OrderStatus.ReadyForShipment && order.packaging && order.delivery) {
+    if (
+      nextStatus === OrderStatus.ReadyForShipment &&
+      order.packaging &&
+      order.delivery
+    ) {
       await packagingRepository.save({
         ...order.packaging,
         status: PackagingStatus.ReadyForShipment,
@@ -655,14 +747,14 @@ export class OrdersService {
         comment: this.serializePackagingMeta(packagingMeta),
         packedAt: order.packaging.packedAt ?? now,
         employeeId: actor?.changedById ?? order.packaging.employeeId ?? null,
-        updatedAt: now
+        updatedAt: now,
       });
 
       await deliveryRepository.save({
         ...order.delivery,
         company: carrier,
         status: DeliveryStatus.ReadyForShipment,
-        updatedAt: now
+        updatedAt: now,
       });
     }
 
@@ -670,49 +762,60 @@ export class OrdersService {
       await packagingRepository.save({
         ...order.packaging,
         comment: this.serializePackagingMeta(packagingMeta),
-        updatedAt: now
+        updatedAt: now,
       });
 
       await this.recordActivity(
         manager,
-        'activity.orderStockProblem',
+        "activity.orderStockProblem",
         {
           orderNumber: order.orderNumber,
-          issueType: payload.warehouseIssueType?.trim() || 'UNKNOWN'
+          issueType: payload.warehouseIssueType?.trim() || "UNKNOWN",
         },
-        now
+        now,
       );
     }
 
     if (nextStatus === OrderStatus.Shipped) {
       if (!payload.trackingNumber) {
-        throw ApiException.validation('Tracking number is required before shipping.', 'trackingNumber');
+        throw ApiException.validation(
+          "Tracking number is required before shipping.",
+          "trackingNumber",
+        );
       }
 
       for (const item of order.items) {
-        const product = await productRepository.findOneBy({ id: item.productId });
+        const product = await productRepository.findOneBy({
+          id: item.productId,
+        });
 
-        if (!product || product.reservedQty < item.quantity || product.stockQty < item.quantity) {
-          throw ApiException.conflict('Reserved stock is inconsistent for shipment.');
+        if (
+          !product ||
+          product.reservedQty < item.quantity ||
+          product.stockQty < item.quantity
+        ) {
+          throw ApiException.conflict(
+            "Reserved stock is inconsistent for shipment.",
+          );
         }
 
         await productRepository.save({
           ...product,
           stockQty: product.stockQty - item.quantity,
-          reservedQty: product.reservedQty - item.quantity
+          reservedQty: product.reservedQty - item.quantity,
         });
 
         await movementRepository.save(
           movementRepository.create({
-            id: createId('movement'),
+            id: createId("movement"),
             productId: item.productId,
             delta: -item.quantity,
             type: InventoryMovementType.Ship,
             reason: `Shipped ${item.quantity} item(s) for order ${order.orderNumber}`,
-            referenceType: 'order',
+            referenceType: "order",
             referenceId: order.id,
-            createdAt: now
-          })
+            createdAt: now,
+          }),
         );
       }
 
@@ -723,7 +826,7 @@ export class OrdersService {
           trackingNumber: payload.trackingNumber.trim(),
           status: DeliveryStatus.Shipped,
           shippedAt: now,
-          updatedAt: now
+          updatedAt: now,
         });
       }
     }
@@ -733,42 +836,47 @@ export class OrdersService {
         ...order.delivery,
         status: DeliveryStatus.Delivered,
         deliveredAt: now,
-        updatedAt: now
+        updatedAt: now,
       });
     }
 
     await orderRepository.save({
       ...order,
       status: nextStatus,
-      confirmedAt: nextStatus === OrderStatus.Confirmed ? now : order.confirmedAt,
+      confirmedAt:
+        nextStatus === OrderStatus.Confirmed ? now : order.confirmedAt,
       packedAt: nextStatus === OrderStatus.Packed ? now : order.packedAt,
       shippedAt: nextStatus === OrderStatus.Shipped ? now : order.shippedAt,
-      deliveredAt: nextStatus === OrderStatus.Delivered ? now : order.deliveredAt,
-      cancelledAt: nextStatus === OrderStatus.Cancelled ? now : order.cancelledAt,
-      updatedAt: now
+      deliveredAt:
+        nextStatus === OrderStatus.Delivered ? now : order.deliveredAt,
+      cancelledAt:
+        nextStatus === OrderStatus.Cancelled ? now : order.cancelledAt,
+      updatedAt: now,
     });
 
     await statusHistoryRepository.save(
       statusHistoryRepository.create({
-        id: createId('status-history'),
+        id: createId("status-history"),
         orderId: order.id,
         oldStatus: order.status,
         newStatus: nextStatus,
-        changedByType: actor?.changedById ? ActorType.Employee : ActorType.System,
+        changedByType: actor?.changedById
+          ? ActorType.Employee
+          : ActorType.System,
         changedById: actor?.changedById ?? null,
         comment: payload.comment?.trim() || null,
-        changedAt: now
-      })
+        changedAt: now,
+      }),
     );
 
     await this.recordActivity(
       manager,
-      'activity.orderMoved',
+      "activity.orderMoved",
       {
         orderNumber: order.orderNumber,
-        status: nextStatus
+        status: nextStatus,
       },
-      now
+      now,
     );
   }
 
@@ -778,15 +886,17 @@ export class OrdersService {
     paymentStatus: PaymentStatus,
     context: PaymentStatusUpdateContext,
     details: { provider?: string; transactionId?: string },
-    suppressReservationRelease = false
+    suppressReservationRelease = false,
   ): Promise<void> {
     const paymentRepository = manager.getRepository(PaymentEntity);
     const orderRepository = manager.getRepository(OrderEntity);
-    const statusHistoryRepository = manager.getRepository(OrderStatusHistoryEntity);
+    const statusHistoryRepository = manager.getRepository(
+      OrderStatusHistoryEntity,
+    );
     const payment = order.payments[0];
 
     if (!payment) {
-      throw ApiException.notFound('Payment record was not found.');
+      throw ApiException.notFound("Payment record was not found.");
     }
 
     const now = new Date();
@@ -797,12 +907,12 @@ export class OrdersService {
       provider: details.provider ?? payment.provider,
       transactionId: details.transactionId ?? payment.transactionId,
       paidAt: paymentStatus === PaymentStatus.Paid ? now : payment.paidAt,
-      updatedAt: now
+      updatedAt: now,
     });
 
     const orderUpdateData: Partial<OrderEntity> = {
       paymentStatus,
-      updatedAt: now
+      updatedAt: now,
     };
 
     const shouldCancelOrder =
@@ -823,39 +933,41 @@ export class OrdersService {
           manager,
           order,
           `Payment ${paymentStatus} for order ${order.orderNumber}`,
-          now
+          now,
         );
       }
     }
 
     await orderRepository.save({
       ...order,
-      ...orderUpdateData
+      ...orderUpdateData,
     });
 
     if (order.status !== orderUpdateData.status && orderUpdateData.status) {
       await statusHistoryRepository.save(
         statusHistoryRepository.create({
-          id: createId('status-history'),
+          id: createId("status-history"),
           orderId: order.id,
           oldStatus: order.status,
           newStatus: orderUpdateData.status,
           changedByType: context.changedByType ?? ActorType.System,
           changedById: context.changedById ?? null,
           comment: context.comment ?? `Payment moved to ${paymentStatus}`,
-          changedAt: now
-        })
+          changedAt: now,
+        }),
       );
     }
 
     await this.recordActivity(
       manager,
-      paymentStatus === PaymentStatus.Paid ? 'activity.paymentPaid' : 'activity.paymentUpdated',
+      paymentStatus === PaymentStatus.Paid
+        ? "activity.paymentPaid"
+        : "activity.paymentUpdated",
       {
         orderNumber: order.orderNumber,
-        paymentStatus
+        paymentStatus,
       },
-      now
+      now,
     );
   }
 
@@ -863,7 +975,7 @@ export class OrdersService {
     manager: EntityManager,
     order: OrderRecord,
     reason: string,
-    createdAt: Date
+    createdAt: Date,
   ): Promise<void> {
     const productRepository = manager.getRepository(ProductEntity);
     const movementRepository = manager.getRepository(InventoryMovementEntity);
@@ -877,60 +989,70 @@ export class OrdersService {
 
       await productRepository.save({
         ...product,
-        reservedQty: product.reservedQty - item.quantity
+        reservedQty: product.reservedQty - item.quantity,
       });
 
       await movementRepository.save(
         movementRepository.create({
-          id: createId('movement'),
+          id: createId("movement"),
           productId: item.productId,
           delta: 0,
           type: InventoryMovementType.Release,
           reason,
-          referenceType: 'order',
+          referenceType: "order",
           referenceId: order.id,
-          createdAt
-        })
+          createdAt,
+        }),
       );
     }
   }
 
   private async loadProductsForCheckout(
     manager: EntityManager,
-    items: CreateClientOrderDto['items']
+    items: CreateClientOrderDto["items"],
   ): Promise<Map<string, ProductEntity>> {
-    const requestedProductIds = [...new Set(items.map((item) => item.productId))];
+    const requestedProductIds = [
+      ...new Set(items.map((item) => item.productId)),
+    ];
     const products = await manager.getRepository(ProductEntity).findBy({
-      id: In(requestedProductIds)
+      id: In(requestedProductIds),
     });
 
-    const productMap = new Map(products.map((product) => [product.id, product]));
+    const productMap = new Map(
+      products.map((product) => [product.id, product]),
+    );
 
     for (const item of items) {
       const product = productMap.get(item.productId);
 
       if (!product) {
-        throw ApiException.validation('Product must exist.', 'items');
+        throw ApiException.validation("Product must exist.", "items");
       }
 
-      if (product.status !== 'active') {
-        throw ApiException.conflict('Only active products can be ordered.');
+      if (product.status !== "active") {
+        throw ApiException.conflict("Only active products can be ordered.");
       }
 
       if (this.getItemQuantity(item) < 1) {
-        throw ApiException.validation('Quantity must be greater than zero.', 'items');
+        throw ApiException.validation(
+          "Quantity must be greater than zero.",
+          "items",
+        );
       }
     }
 
     return productMap;
   }
 
-  private getStockDemand(items: CreateClientOrderDto['items']) {
+  private getStockDemand(items: CreateClientOrderDto["items"]) {
     const stockDemand = new Map<string, number>();
 
     for (const item of items) {
       const quantity = this.getItemQuantity(item);
-      stockDemand.set(item.productId, (stockDemand.get(item.productId) ?? 0) + quantity);
+      stockDemand.set(
+        item.productId,
+        (stockDemand.get(item.productId) ?? 0) + quantity,
+      );
     }
 
     return stockDemand;
@@ -956,15 +1078,20 @@ export class OrdersService {
   }
 
   private validateDeliverySelection(payload: CreateCheckoutPayload) {
-    if (payload.deliveryMethod === DeliveryMethod.DeliveryCompany && !payload.deliveryCompany?.trim()) {
+    if (
+      payload.deliveryMethod === DeliveryMethod.DeliveryCompany &&
+      !payload.deliveryCompany?.trim()
+    ) {
       throw ApiException.validation(
-        'Delivery company is required for the selected delivery method.',
-        'deliveryCompany'
+        "Delivery company is required for the selected delivery method.",
+        "deliveryCompany",
       );
     }
   }
 
-  private buildContactSnapshot(payload: CreateCheckoutPayload): OrderContactSnapshot {
+  private buildContactSnapshot(
+    payload: CreateCheckoutPayload,
+  ): OrderContactSnapshot {
     const firstName = payload.firstName.trim();
     const lastName = payload.lastName.trim();
     return {
@@ -972,11 +1099,13 @@ export class OrdersService {
       lastName,
       name: `${firstName} ${lastName}`.trim(),
       phone: payload.phone.trim(),
-      email: payload.email?.trim().toLowerCase() ?? null
+      email: payload.email?.trim().toLowerCase() ?? null,
     };
   }
 
-  private buildAddressSnapshot(payload: CreateCheckoutPayload): OrderAddressSnapshot {
+  private buildAddressSnapshot(
+    payload: CreateCheckoutPayload,
+  ): OrderAddressSnapshot {
     const address = {
       country: payload.country.trim(),
       region: payload.region.trim(),
@@ -985,7 +1114,7 @@ export class OrdersService {
       house: payload.house.trim(),
       apartment: payload.apartment?.trim() || null,
       postalCode: payload.postalCode.trim(),
-      formatted: ''
+      formatted: "",
     };
 
     address.formatted = [
@@ -994,10 +1123,10 @@ export class OrdersService {
       address.city,
       `${address.street} ${address.house}`.trim(),
       address.apartment ? `apt. ${address.apartment}` : null,
-      address.postalCode
+      address.postalCode,
     ]
       .filter(Boolean)
-      .join(', ');
+      .join(", ");
 
     return address;
   }
@@ -1009,41 +1138,45 @@ export class OrdersService {
   private parseAddressSnapshot(raw: string): OrderAddressSnapshot {
     try {
       const parsed = JSON.parse(raw) as Partial<OrderAddressSnapshot>;
-      if (parsed && typeof parsed === 'object' && typeof parsed.formatted === 'string') {
+      if (
+        parsed &&
+        typeof parsed === "object" &&
+        typeof parsed.formatted === "string"
+      ) {
         return {
-          country: parsed.country ?? '',
-          region: parsed.region ?? '',
-          city: parsed.city ?? '',
-          street: parsed.street ?? '',
-          house: parsed.house ?? '',
+          country: parsed.country ?? "",
+          region: parsed.region ?? "",
+          city: parsed.city ?? "",
+          street: parsed.street ?? "",
+          house: parsed.house ?? "",
           apartment: parsed.apartment ?? null,
-          postalCode: parsed.postalCode ?? '',
-          formatted: parsed.formatted
+          postalCode: parsed.postalCode ?? "",
+          formatted: parsed.formatted,
         };
       }
     } catch {}
 
     return {
-      country: '',
-      region: '',
-      city: '',
-      street: '',
-      house: '',
+      country: "",
+      region: "",
+      city: "",
+      street: "",
+      house: "",
       apartment: null,
-      postalCode: '',
-      formatted: raw
+      postalCode: "",
+      formatted: raw,
     };
   }
 
   private parseContactSnapshot(order: OrderRecord): OrderContactSnapshot {
     const name = order.customerNameSnapshot.trim();
-    const [firstName = name, ...rest] = name.split(' ').filter(Boolean);
+    const [firstName = name, ...rest] = name.split(" ").filter(Boolean);
     return {
       firstName,
-      lastName: rest.join(' '),
+      lastName: rest.join(" "),
       name,
       phone: order.phoneSnapshot,
-      email: order.emailSnapshot
+      email: order.emailSnapshot,
     };
   }
 
@@ -1052,17 +1185,17 @@ export class OrdersService {
       return {
         comment: null,
         serialNumbers: null,
-        warehouseIssueType: null
+        warehouseIssueType: null,
       };
     }
 
     try {
       const parsed = JSON.parse(raw) as Partial<PackagingMeta>;
-      if (parsed && typeof parsed === 'object') {
+      if (parsed && typeof parsed === "object") {
         return {
           comment: parsed.comment ?? null,
           serialNumbers: parsed.serialNumbers ?? null,
-          warehouseIssueType: parsed.warehouseIssueType ?? null
+          warehouseIssueType: parsed.warehouseIssueType ?? null,
         };
       }
     } catch {}
@@ -1070,7 +1203,7 @@ export class OrdersService {
     return {
       comment: raw,
       serialNumbers: null,
-      warehouseIssueType: null
+      warehouseIssueType: null,
     };
   }
 
@@ -1078,16 +1211,26 @@ export class OrdersService {
     return JSON.stringify(meta);
   }
 
-  private mergePackagingMeta(raw: string | null, payload: UpdateOrderStatusDto): PackagingMeta {
+  private mergePackagingMeta(
+    raw: string | null,
+    payload: UpdateOrderStatusDto,
+  ): PackagingMeta {
     const current = this.parsePackagingMeta(raw);
     return {
-      comment: payload.packagingComment?.trim() || payload.comment?.trim() || current.comment,
+      comment:
+        payload.packagingComment?.trim() ||
+        payload.comment?.trim() ||
+        current.comment,
       serialNumbers: payload.serialNumbers?.trim() || current.serialNumbers,
-      warehouseIssueType: payload.warehouseIssueType?.trim() || current.warehouseIssueType
+      warehouseIssueType:
+        payload.warehouseIssueType?.trim() || current.warehouseIssueType,
     };
   }
 
-  private buildDimensionsValue(payload: UpdateOrderStatusDto, current: string | null) {
+  private buildDimensionsValue(
+    payload: UpdateOrderStatusDto,
+    current: string | null,
+  ) {
     if (
       payload.lengthCm === undefined &&
       payload.widthCm === undefined &&
@@ -1107,15 +1250,17 @@ export class OrdersService {
       return {
         lengthCm: null,
         widthCm: null,
-        heightCm: null
+        heightCm: null,
       };
     }
 
-    const [length, width, height] = dimensions.split('x').map((value) => Number(value));
+    const [length, width, height] = dimensions
+      .split("x")
+      .map((value) => Number(value));
     return {
       lengthCm: Number.isFinite(length) ? length : null,
       widthCm: Number.isFinite(width) ? width : null,
-      heightCm: Number.isFinite(height) ? height : null
+      heightCm: Number.isFinite(height) ? height : null,
     };
   }
 
@@ -1130,8 +1275,8 @@ export class OrdersService {
       .find((entry) => entry.newStatus === OrderStatus.StockProblem);
 
     return {
-      type: issueType ?? 'UNKNOWN',
-      comment: historyEntry?.comment ?? packagingMeta.comment
+      type: issueType ?? "UNKNOWN",
+      comment: historyEntry?.comment ?? packagingMeta.comment,
     };
   }
 
@@ -1140,14 +1285,14 @@ export class OrdersService {
 
     for (let attempt = 0; attempt < 5; attempt += 1) {
       const existingOrderNumbers = await orderRepository.find({
-        where: { orderNumber: Like('ORD-%') },
-        select: { orderNumber: true }
+        where: { orderNumber: Like("ORD-%") },
+        select: { orderNumber: true },
       });
 
       const orderNumber = getNextSequentialPrefixedId(
         existingOrderNumbers.map((item) => item.orderNumber),
-        'ORD',
-        1001
+        "ORD",
+        1001,
       );
 
       const existing = await orderRepository.findOneBy({ orderNumber });
@@ -1157,25 +1302,27 @@ export class OrdersService {
       }
     }
 
-    throw ApiException.conflict('Could not allocate a new order number. Please retry.');
+    throw ApiException.conflict(
+      "Could not allocate a new order number. Please retry.",
+    );
   }
 
   private async recordActivity(
     manager: EntityManager,
     title: string,
     messageParams: Record<string, string | number>,
-    timestamp = new Date()
+    timestamp = new Date(),
   ) {
     const activityRepository = manager.getRepository(ActivityEntity);
 
     await activityRepository.save(
       activityRepository.create({
-        id: createId('activity'),
+        id: createId("activity"),
         title,
         messageKey: title,
         messageParams,
-        timestamp
-      })
+        timestamp,
+      }),
     );
   }
 
@@ -1188,84 +1335,100 @@ export class OrdersService {
       order.paymentStatus === PaymentStatus.Cancelled ||
       order.paymentStatus === PaymentStatus.Refunded
     ) {
-      return 'exception';
+      return "exception";
     }
 
     switch (order.status) {
       case OrderStatus.New:
-        return 'intake';
+        return "intake";
       case OrderStatus.Confirmed:
-        return 'payment';
+        return "payment";
       case OrderStatus.SentToWarehouse:
       case OrderStatus.Picking:
       case OrderStatus.Picked:
-        return 'warehouse';
+        return "warehouse";
       case OrderStatus.Packing:
       case OrderStatus.Packed:
-        return 'packing';
+        return "packing";
       case OrderStatus.ReadyForShipment:
       case OrderStatus.Shipped:
-        return 'shipment';
+        return "shipment";
       case OrderStatus.Delivered:
-        return 'completed';
+        return "completed";
       default:
-        return 'intake';
+        return "intake";
     }
   }
 
-  private buildTimeline(order: OrderRecord): OrderWire['timeline'] {
-    const timeline: OrderWire['timeline'] = order.statusHistory.map((entry) => ({
-      type: 'status',
-      status: entry.newStatus,
-      happenedAt: entry.changedAt,
-      comment: entry.comment ?? null,
-      actorType: entry.changedByType,
-      actorId: entry.changedById
-    }));
+  private buildTimeline(order: OrderRecord): OrderWire["timeline"] {
+    const timeline: OrderWire["timeline"] = order.statusHistory.map(
+      (entry) => ({
+        type: "status",
+        status: entry.newStatus,
+        happenedAt: entry.changedAt,
+        comment: entry.comment ?? null,
+        actorType: entry.changedByType,
+        actorId: entry.changedById,
+      }),
+    );
 
     const payment = order.payments[0];
     if (payment?.updatedAt) {
       timeline.push({
-        type: 'payment',
+        type: "payment",
         status: payment.status,
         happenedAt: payment.paidAt ?? payment.updatedAt,
-        comment: payment.transactionId ? `Transaction ${payment.transactionId}` : null,
+        comment: payment.transactionId
+          ? `Transaction ${payment.transactionId}`
+          : null,
         actorType: null,
-        actorId: null
+        actorId: null,
       });
     }
 
     if (order.delivery?.shippedAt) {
       timeline.push({
-        type: 'delivery',
+        type: "delivery",
         status: DeliveryStatus.Shipped,
         happenedAt: order.delivery.shippedAt,
-        comment: order.delivery.trackingNumber ? `Tracking ${order.delivery.trackingNumber}` : null,
+        comment: order.delivery.trackingNumber
+          ? `Tracking ${order.delivery.trackingNumber}`
+          : null,
         actorType: null,
-        actorId: null
+        actorId: null,
       });
     }
 
     if (order.delivery?.deliveredAt) {
       timeline.push({
-        type: 'delivery',
+        type: "delivery",
         status: DeliveryStatus.Delivered,
         happenedAt: order.delivery.deliveredAt,
-        comment: order.delivery.company ? `Carrier ${order.delivery.company}` : null,
+        comment: order.delivery.company
+          ? `Carrier ${order.delivery.company}`
+          : null,
         actorType: null,
-        actorId: null
+        actorId: null,
       });
     }
 
-    return timeline.sort((left, right) => left.happenedAt.getTime() - right.happenedAt.getTime());
+    return timeline.sort(
+      (left, right) => left.happenedAt.getTime() - right.happenedAt.getTime(),
+    );
   }
 
   private toWire(order: OrderRecord): OrderWire {
     const payment = order.payments[0] ?? null;
-    const addressSnapshot = this.parseAddressSnapshot(order.deliveryAddressSnapshot);
+    const addressSnapshot = this.parseAddressSnapshot(
+      order.deliveryAddressSnapshot,
+    );
     const contactSnapshot = this.parseContactSnapshot(order);
-    const packagingMeta = this.parsePackagingMeta(order.packaging?.comment ?? null);
-    const parsedDimensions = this.parseDimensions(order.packaging?.dimensions ?? null);
+    const packagingMeta = this.parsePackagingMeta(
+      order.packaging?.comment ?? null,
+    );
+    const parsedDimensions = this.parseDimensions(
+      order.packaging?.dimensions ?? null,
+    );
     const availableTransitions = ORDER_STATUS_TRANSITIONS[order.status] ?? [];
 
     return {
@@ -1282,7 +1445,7 @@ export class OrdersService {
         qty: item.quantity,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
-        totalPrice: item.totalPrice
+        totalPrice: item.totalPrice,
       })),
       paymentMethod: order.paymentMethod,
       paymentStatus: order.paymentStatus,
@@ -1292,7 +1455,7 @@ export class OrdersService {
             status: payment.status,
             amount: payment.amount,
             transactionId: payment.transactionId,
-            paidAt: payment.paidAt
+            paidAt: payment.paidAt,
           }
         : null,
       deliveryMethod: order.deliveryMethod,
@@ -1307,7 +1470,7 @@ export class OrdersService {
             shippingCost: order.delivery.shippingCost,
             status: order.delivery.status,
             shippedAt: order.delivery.shippedAt,
-            deliveredAt: order.delivery.deliveredAt
+            deliveredAt: order.delivery.deliveredAt,
           }
         : null,
       packaging: order.packaging
@@ -1324,7 +1487,7 @@ export class OrdersService {
             serialNumbers: packagingMeta.serialNumbers,
             warehouseIssueType: packagingMeta.warehouseIssueType,
             packedAt: order.packaging.packedAt,
-            employeeId: order.packaging.employeeId
+            employeeId: order.packaging.employeeId,
           }
         : null,
       warehouseIssue: this.findWarehouseIssue(order, packagingMeta),
@@ -1339,41 +1502,48 @@ export class OrdersService {
         changedByType: entry.changedByType,
         changedById: entry.changedById,
         comment: entry.comment,
-        changedAt: entry.changedAt
+        changedAt: entry.changedAt,
       })),
       timeline: this.buildTimeline(order),
       paymentRedirectUrl:
-        order.paymentMethod === PaymentMethod.Online && order.paymentStatus === PaymentStatus.Pending
+        order.paymentMethod === PaymentMethod.Online &&
+        order.paymentStatus === PaymentStatus.Pending
           ? `/payments/stub/${order.id}`
           : null,
       createdAt: order.createdAt,
-      updatedAt: order.updatedAt
+      updatedAt: order.updatedAt,
     };
   }
 
   private buildOrderRecordQuery(manager?: EntityManager) {
     return this.getOrderRepository(manager)
-      .createQueryBuilder('orderRecord')
-      .leftJoinAndSelect('orderRecord.items', 'items')
-      .leftJoinAndSelect('orderRecord.payments', 'payments')
-      .leftJoinAndSelect('orderRecord.delivery', 'delivery')
-      .leftJoinAndSelect('orderRecord.packaging', 'packaging')
-      .leftJoinAndSelect('orderRecord.statusHistory', 'statusHistory');
+      .createQueryBuilder("orderRecord")
+      .leftJoinAndSelect("orderRecord.items", "items")
+      .leftJoinAndSelect("orderRecord.payments", "payments")
+      .leftJoinAndSelect("orderRecord.delivery", "delivery")
+      .leftJoinAndSelect("orderRecord.packaging", "packaging")
+      .leftJoinAndSelect("orderRecord.statusHistory", "statusHistory");
   }
 
-  private async loadOrderById(id: string, manager?: EntityManager): Promise<OrderRecord | null> {
+  private async loadOrderById(
+    id: string,
+    manager?: EntityManager,
+  ): Promise<OrderRecord | null> {
     const order = await this.buildOrderRecordQuery(manager)
-      .where('orderRecord.id = :id', { id })
-      .orderBy('statusHistory.changedAt', 'ASC')
+      .where("orderRecord.id = :id", { id })
+      .orderBy("statusHistory.changedAt", "ASC")
       .getOne();
 
     return order ? this.normalizeLoadedOrder(order as OrderRecord) : null;
   }
 
-  private async loadOrderByOrderNumber(orderNumber: string, manager?: EntityManager): Promise<OrderRecord | null> {
+  private async loadOrderByOrderNumber(
+    orderNumber: string,
+    manager?: EntityManager,
+  ): Promise<OrderRecord | null> {
     const order = await this.buildOrderRecordQuery(manager)
-      .where('orderRecord.orderNumber = :orderNumber', { orderNumber })
-      .orderBy('statusHistory.changedAt', 'ASC')
+      .where("orderRecord.orderNumber = :orderNumber", { orderNumber })
+      .orderBy("statusHistory.changedAt", "ASC")
       .getOne();
 
     return order ? this.normalizeLoadedOrder(order as OrderRecord) : null;
@@ -1381,10 +1551,10 @@ export class OrdersService {
 
   private normalizeLoadedOrder(order: OrderRecord): OrderRecord {
     order.statusHistory = [...(order.statusHistory ?? [])].sort(
-      (left, right) => left.changedAt.getTime() - right.changedAt.getTime()
+      (left, right) => left.changedAt.getTime() - right.changedAt.getTime(),
     );
     order.payments = [...(order.payments ?? [])].sort(
-      (left, right) => left.createdAt.getTime() - right.createdAt.getTime()
+      (left, right) => left.createdAt.getTime() - right.createdAt.getTime(),
     );
     order.items = [...(order.items ?? [])];
     return order;

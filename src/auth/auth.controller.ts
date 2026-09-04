@@ -1,22 +1,30 @@
-import { Body, Controller, Get, HttpCode, Post, Req, Res } from '@nestjs/common';
-import { Request, Response } from 'express';
-import { AuthService } from './auth.service';
-import { LoginDto } from './dto/login.dto';
-import { RegisterDto } from './dto/register.dto';
-import { SessionService } from './session.service';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Post,
+  Req,
+  Res,
+} from "@nestjs/common";
+import { Request, Response } from "express";
+import { AuthService } from "./auth.service";
+import { LoginDto } from "./dto/login.dto";
+import { RegisterDto } from "./dto/register.dto";
+import { SessionService } from "./session.service";
 
-@Controller('auth')
+@Controller("auth")
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
-    private readonly sessionService: SessionService
+    private readonly sessionService: SessionService,
   ) {}
 
-  @Post('login')
+  @Post("login")
   @HttpCode(200)
   async login(
     @Body() body: LoginDto,
-    @Res({ passthrough: true }) response: Response
+    @Res({ passthrough: true }) response: Response,
   ): Promise<{ session: { role: string; name: string; customerId?: string } }> {
     const result = await this.authService.login(body);
     this.setSessionCookie(response, result.sessionId);
@@ -24,11 +32,11 @@ export class AuthController {
     return { session: result.session };
   }
 
-  @Post('register')
+  @Post("register")
   @HttpCode(201)
   async register(
     @Body() body: RegisterDto,
-    @Res({ passthrough: true }) response: Response
+    @Res({ passthrough: true }) response: Response,
   ): Promise<{ session: { role: string; name: string; customerId?: string } }> {
     const result = await this.authService.register(body);
     this.setSessionCookie(response, result.sessionId);
@@ -36,17 +44,19 @@ export class AuthController {
     return { session: result.session };
   }
 
-  @Get('session')
+  @Get("session")
   async getSession(
-    @Req() request: Request
-  ): Promise<{ session: { role: string; name: string; customerId?: string } | null }> {
+    @Req() request: Request,
+  ): Promise<{
+    session: { role: string; name: string; customerId?: string } | null;
+  }> {
     const session = await this.sessionService.resolveRequestSession(
-      request.cookies as Record<string, string | undefined>
+      request.cookies as Record<string, string | undefined>,
     );
     return { session };
   }
 
-  @Post('logout')
+  @Post("logout")
   @HttpCode(204)
   async logout(
     @Req() request: Request,
@@ -61,7 +71,7 @@ export class AuthController {
       sameSite: this.sessionService.sameSiteCookie,
       secure: this.sessionService.secureCookie,
       domain: this.sessionService.cookieDomain,
-      path: '/'
+      path: "/",
     });
   }
 
@@ -72,7 +82,7 @@ export class AuthController {
       secure: this.sessionService.secureCookie,
       maxAge: this.sessionService.sessionTtlMs,
       domain: this.sessionService.cookieDomain,
-      path: '/'
+      path: "/",
     });
   }
 }

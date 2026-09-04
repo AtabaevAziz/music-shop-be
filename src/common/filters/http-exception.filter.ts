@@ -1,6 +1,12 @@
-import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus } from '@nestjs/common';
-import { QueryFailedError } from 'typeorm';
-import { Response } from 'express';
+import {
+  ArgumentsHost,
+  Catch,
+  ExceptionFilter,
+  HttpException,
+  HttpStatus,
+} from "@nestjs/common";
+import { QueryFailedError } from "typeorm";
+import { Response } from "express";
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
@@ -13,14 +19,15 @@ export class HttpExceptionFilter implements ExceptionFilter {
     }
 
     if (exception instanceof QueryFailedError) {
-      const driverError = exception.driverError as { code?: string } | undefined;
+      const driverError = exception.driverError as
+        { code?: string } | undefined;
 
-      if (driverError?.code === '23505') {
+      if (driverError?.code === "23505") {
         response.status(HttpStatus.CONFLICT).json({
           error: {
-            code: 'conflict',
-            message: 'Unique constraint failed.'
-          }
+            code: "conflict",
+            message: "Unique constraint failed.",
+          },
         });
         return;
       }
@@ -28,9 +35,9 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
     response.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
       error: {
-        code: 'internal_error',
-        message: 'Unexpected server error.'
-      }
+        code: "internal_error",
+        message: "Unexpected server error.",
+      },
     });
   }
 }

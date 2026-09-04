@@ -1,7 +1,7 @@
-import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
-import { Role } from '../../common/enums/role.enum';
-import { ApiException } from '../../common/exceptions/api.exception';
-import { RequestWithSession } from '../interfaces/request-with-session.interface';
+import { CanActivate, ExecutionContext, Injectable } from "@nestjs/common";
+import { Role } from "../../common/enums/role.enum";
+import { ApiException } from "../../common/exceptions/api.exception";
+import { RequestWithSession } from "../interfaces/request-with-session.interface";
 
 @Injectable()
 export class ClientOnlyGuard implements CanActivate {
@@ -10,10 +10,9 @@ export class ClientOnlyGuard implements CanActivate {
     const session = request.currentSession;
 
     if (!session || session.role !== Role.Client || !session.customerId) {
-      throw ApiException.forbidden('Client access is required.');
+      throw ApiException.forbidden("Client access is required.");
     }
 
     return true;
   }
 }
-

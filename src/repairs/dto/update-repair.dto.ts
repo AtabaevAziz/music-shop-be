@@ -1,6 +1,15 @@
-import { Type } from 'class-transformer';
-import { IsDateString, IsEnum, IsInt, IsOptional, IsString, IsUrl, Min, MinLength } from 'class-validator';
-import { RepairStatus } from '../../common/enums/repair-status.enum';
+import { Type } from "class-transformer";
+import {
+  IsDateString,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUrl,
+  Min,
+  MinLength,
+} from "class-validator";
+import { RepairStatus } from "../../common/enums/repair-status.enum";
 
 export class UpdateRepairDto {
   @IsString()

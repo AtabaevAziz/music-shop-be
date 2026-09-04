@@ -1,10 +1,16 @@
-import { INestApplication, ValidationError, ValidationPipe } from '@nestjs/common';
-import cookieParser from 'cookie-parser';
-import { HttpExceptionFilter } from './common/filters/http-exception.filter';
-import { ApiException } from './common/exceptions/api.exception';
-import { TrimInputPipe } from './common/pipes/trim-input.pipe';
+import {
+  INestApplication,
+  ValidationError,
+  ValidationPipe,
+} from "@nestjs/common";
+import cookieParser from "cookie-parser";
+import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
+import { ApiException } from "./common/exceptions/api.exception";
+import { TrimInputPipe } from "./common/pipes/trim-input.pipe";
 
-function flattenValidationErrors(errors: ValidationError[]): ValidationError | undefined {
+function flattenValidationErrors(
+  errors: ValidationError[],
+): ValidationError | undefined {
   const [firstError] = errors;
 
   if (!firstError) {
@@ -15,16 +21,18 @@ function flattenValidationErrors(errors: ValidationError[]): ValidationError | u
     return firstError;
   }
 
-  return firstError.children ? flattenValidationErrors(firstError.children) : firstError;
+  return firstError.children
+    ? flattenValidationErrors(firstError.children)
+    : firstError;
 }
 
 export function configureApp(app: INestApplication): void {
-  const allowedOrigins = (process.env.CLIENT_ORIGIN ?? 'http://localhost:3000')
-    .split(',')
+  const allowedOrigins = (process.env.CLIENT_ORIGIN ?? "http://localhost:3000")
+    .split(",")
     .map((origin) => origin.trim())
     .filter(Boolean);
 
-  app.setGlobalPrefix('api/v1');
+  app.setGlobalPrefix("api/v1");
   app.use(cookieParser());
   app.enableCors({
     origin: (origin, callback) => {
@@ -35,7 +43,7 @@ export function configureApp(app: INestApplication): void {
 
       callback(new Error(`Origin ${origin} is not allowed by CORS.`), false);
     },
-    credentials: true
+    credentials: true,
   });
   app.useGlobalPipes(
     new TrimInputPipe(),
@@ -45,10 +53,12 @@ export function configureApp(app: INestApplication): void {
       forbidNonWhitelisted: true,
       exceptionFactory: (errors) => {
         const error = flattenValidationErrors(errors);
-        const message = error?.constraints ? Object.values(error.constraints)[0] : 'Validation failed.';
+        const message = error?.constraints
+          ? Object.values(error.constraints)[0]
+          : "Validation failed.";
         throw ApiException.validation(message, error?.property);
-      }
-    })
+      },
+    }),
   );
   app.useGlobalFilters(new HttpExceptionFilter());
 }

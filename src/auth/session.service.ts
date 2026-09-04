@@ -1,17 +1,21 @@
-import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { createId } from '../common/utils/id.util';
+import { Injectable } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { createId } from "../common/utils/id.util";
 import {
   DEFAULT_SESSION_COOKIE_NAME,
   DEFAULT_SESSION_COOKIE_SAME_SITE,
-  DEFAULT_SESSION_TTL_HOURS
-} from '../common/constants/auth.constants';
-import { SessionDto } from './types/session.dto';
-import { Role } from '../common/enums/role.enum';
-import { PrincipalType } from '../common/enums/principal-type.enum';
-import { CustomerEntity, EmployeeEntity, SessionEntity } from '../database/entities';
+  DEFAULT_SESSION_TTL_HOURS,
+} from "../common/constants/auth.constants";
+import { SessionDto } from "./types/session.dto";
+import { Role } from "../common/enums/role.enum";
+import { PrincipalType } from "../common/enums/principal-type.enum";
+import {
+  CustomerEntity,
+  EmployeeEntity,
+  SessionEntity,
+} from "../database/entities";
 
 type SessionRecord = SessionEntity & {
   employee: EmployeeEntity | null;
@@ -23,44 +27,55 @@ export class SessionService {
   constructor(
     @InjectRepository(SessionEntity)
     private readonly sessionRepository: Repository<SessionEntity>,
-    private readonly configService: ConfigService
+    private readonly configService: ConfigService,
   ) {}
 
   get cookieName(): string {
-    return this.configService.get<string>('SESSION_COOKIE_NAME') ?? DEFAULT_SESSION_COOKIE_NAME;
+    return (
+      this.configService.get<string>("SESSION_COOKIE_NAME") ??
+      DEFAULT_SESSION_COOKIE_NAME
+    );
   }
 
   get sessionTtlMs(): number {
     const ttlHours =
-      this.configService.get<number>('SESSION_TTL_HOURS') ?? DEFAULT_SESSION_TTL_HOURS;
+      this.configService.get<number>("SESSION_TTL_HOURS") ??
+      DEFAULT_SESSION_TTL_HOURS;
     return ttlHours * 60 * 60 * 1000;
   }
 
   get secureCookie(): boolean {
-    return (this.configService.get<string>('SESSION_SECURE_COOKIE') ?? 'false') === 'true';
+    return (
+      (this.configService.get<string>("SESSION_SECURE_COOKIE") ?? "false") ===
+      "true"
+    );
   }
 
-  get sameSiteCookie(): 'lax' | 'strict' | 'none' {
+  get sameSiteCookie(): "lax" | "strict" | "none" {
     const configuredValue =
-      this.configService.get<string>('SESSION_COOKIE_SAME_SITE') ??
+      this.configService.get<string>("SESSION_COOKIE_SAME_SITE") ??
       DEFAULT_SESSION_COOKIE_SAME_SITE;
     const normalizedValue = configuredValue.trim().toLowerCase();
 
-    if (normalizedValue === 'strict' || normalizedValue === 'none') {
+    if (normalizedValue === "strict" || normalizedValue === "none") {
       return normalizedValue;
     }
 
-    return 'lax';
+    return "lax";
   }
 
   get cookieDomain(): string | undefined {
-    const configuredValue = this.configService.get<string>('SESSION_COOKIE_DOMAIN');
+    const configuredValue = this.configService.get<string>(
+      "SESSION_COOKIE_DOMAIN",
+    );
     const normalizedValue = configuredValue?.trim();
     return normalizedValue ? normalizedValue : undefined;
   }
 
-  async createEmployeeSession(employee: EmployeeEntity): Promise<{ sessionId: string; session: SessionDto }> {
-    const sessionId = createId('session');
+  async createEmployeeSession(
+    employee: EmployeeEntity,
+  ): Promise<{ sessionId: string; session: SessionDto }> {
+    const sessionId = createId("session");
     const expiresAt = new Date(Date.now() + this.sessionTtlMs);
 
     await this.sessionRepository.save(
@@ -68,8 +83,8 @@ export class SessionService {
         id: sessionId,
         principalType: PrincipalType.Employee,
         employeeId: employee.id,
-        expiresAt
-      })
+        expiresAt,
+      }),
     );
 
     return {
@@ -77,13 +92,15 @@ export class SessionService {
       session: {
         role: employee.role as Role,
         name: employee.name,
-        employeeId: employee.id
-      }
+        employeeId: employee.id,
+      },
     };
   }
 
-  async createCustomerSession(customer: CustomerEntity): Promise<{ sessionId: string; session: SessionDto }> {
-    const sessionId = createId('session');
+  async createCustomerSession(
+    customer: CustomerEntity,
+  ): Promise<{ sessionId: string; session: SessionDto }> {
+    const sessionId = createId("session");
     const expiresAt = new Date(Date.now() + this.sessionTtlMs);
 
     await this.sessionRepository.save(
@@ -91,8 +108,8 @@ export class SessionService {
         id: sessionId,
         principalType: PrincipalType.Customer,
         customerId: customer.id,
-        expiresAt
-      })
+        expiresAt,
+      }),
     );
 
     return {
@@ -100,12 +117,14 @@ export class SessionService {
       session: {
         role: Role.Client,
         name: customer.name,
-        customerId: customer.id
-      }
+        customerId: customer.id,
+      },
     };
   }
 
-  async resolveRequestSession(cookies: Record<string, string | undefined>): Promise<SessionDto | null> {
+  async resolveRequestSession(
+    cookies: Record<string, string | undefined>,
+  ): Promise<SessionDto | null> {
     const sessionId = cookies[this.cookieName];
 
     if (!sessionId) {
@@ -116,8 +135,8 @@ export class SessionService {
       where: { id: sessionId },
       relations: {
         employee: true,
-        customer: true
-      }
+        customer: true,
+      },
     });
 
     return this.normalizeSession(sessionRecord);
@@ -131,7 +150,9 @@ export class SessionService {
     await this.sessionRepository.delete({ id: sessionId });
   }
 
-  private async normalizeSession(sessionRecord: SessionRecord | null): Promise<SessionDto | null> {
+  private async normalizeSession(
+    sessionRecord: SessionRecord | null,
+  ): Promise<SessionDto | null> {
     if (!sessionRecord) {
       return null;
     }
@@ -142,7 +163,10 @@ export class SessionService {
     }
 
     if (sessionRecord.principalType === PrincipalType.Employee) {
-      if (!sessionRecord.employee || sessionRecord.employee.status !== 'active') {
+      if (
+        !sessionRecord.employee ||
+        sessionRecord.employee.status !== "active"
+      ) {
         await this.clearSession(sessionRecord.id);
         return null;
       }
@@ -150,11 +174,11 @@ export class SessionService {
       return {
         role: sessionRecord.employee.role as Role,
         name: sessionRecord.employee.name,
-        employeeId: sessionRecord.employee.id
+        employeeId: sessionRecord.employee.id,
       };
     }
 
-    if (!sessionRecord.customer || sessionRecord.customer.status !== 'active') {
+    if (!sessionRecord.customer || sessionRecord.customer.status !== "active") {
       await this.clearSession(sessionRecord.id);
       return null;
     }
@@ -162,7 +186,7 @@ export class SessionService {
     return {
       role: Role.Client,
       name: sessionRecord.customer.name,
-      customerId: sessionRecord.customer.id
+      customerId: sessionRecord.customer.id,
     };
   }
 }

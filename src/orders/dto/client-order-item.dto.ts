@@ -1,5 +1,5 @@
-import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, Min, ValidateIf } from 'class-validator';
+import { Type } from "class-transformer";
+import { IsInt, IsOptional, IsString, Min, ValidateIf } from "class-validator";
 
 export class ClientOrderItemDto {
   @IsString()

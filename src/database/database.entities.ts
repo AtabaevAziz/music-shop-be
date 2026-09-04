@@ -13,8 +13,8 @@ import {
   PaymentEntity,
   ProductEntity,
   RepairRequestEntity,
-  SessionEntity
-} from './entities';
+  SessionEntity,
+} from "./entities";
 
 export const DATABASE_ENTITIES = [
   EmployeeEntity,
@@ -31,5 +31,5 @@ export const DATABASE_ENTITIES = [
   OrderStatusHistoryEntity,
   RepairRequestEntity,
   ActivityEntity,
-  BusinessSettingsEntity
+  BusinessSettingsEntity,
 ] as const;

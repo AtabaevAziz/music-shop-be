@@ -1,5 +1,11 @@
-import * as bcrypt from 'bcrypt';
-import { DataSource, EntityManager, EntityTarget, ObjectLiteral, Repository } from 'typeorm';
+import * as bcrypt from "bcrypt";
+import {
+  DataSource,
+  EntityManager,
+  EntityTarget,
+  ObjectLiteral,
+  Repository,
+} from "typeorm";
 import {
   activitySeeds,
   businessSettingsSeed,
@@ -14,8 +20,8 @@ import {
   packagingDetailSeeds,
   paymentSeeds,
   productSeeds,
-  repairSeeds
-} from './seed-data';
+  repairSeeds,
+} from "./seed-data";
 import {
   ActivityEntity,
   BusinessSettingsEntity,
@@ -31,9 +37,9 @@ import {
   PaymentEntity,
   ProductEntity,
   RepairRequestEntity,
-  SessionEntity
-} from './entities';
-import AppDataSource from './typeorm.datasource';
+  SessionEntity,
+} from "./entities";
+import AppDataSource from "./typeorm.datasource";
 
 type SeedClient = DataSource | EntityManager;
 
@@ -42,7 +48,7 @@ export function normalizeSeedRequiredString(value: string): string {
 }
 
 export function normalizeSeedOptionalString(
-  value: string | null | undefined
+  value: string | null | undefined,
 ): string | null | undefined {
   if (value === undefined) {
     return undefined;
@@ -53,7 +59,7 @@ export function normalizeSeedOptionalString(
   }
 
   const trimmedValue = value.trim();
-  return trimmedValue === '' ? null : trimmedValue;
+  return trimmedValue === "" ? null : trimmedValue;
 }
 
 export async function seedDatabase(client: SeedClient): Promise<void> {
@@ -89,14 +95,18 @@ async function clearDatabase(client: SeedClient): Promise<void> {
 
 async function deleteAll<TEntity extends ObjectLiteral>(
   client: SeedClient,
-  entity: EntityTarget<TEntity>
+  entity: EntityTarget<TEntity>,
 ): Promise<void> {
-  await getRepository(client, entity).createQueryBuilder().delete().from(entity).execute();
+  await getRepository(client, entity)
+    .createQueryBuilder()
+    .delete()
+    .from(entity)
+    .execute();
 }
 
 function getRepository<TEntity extends ObjectLiteral>(
   client: SeedClient,
-  entity: EntityTarget<TEntity>
+  entity: EntityTarget<TEntity>,
 ): Repository<TEntity> {
   return client.getRepository(entity);
 }
@@ -104,20 +114,18 @@ function getRepository<TEntity extends ObjectLiteral>(
 async function upsertSeedData(client: SeedClient): Promise<void> {
   await getRepository(client, BusinessSettingsEntity).upsert(
     {
-      id: businessSettingsSeed.id,
-      ...businessSettingsSeed
+      ...businessSettingsSeed,
     },
-    ['id']
+    ["id"],
   );
 
   for (const employee of employeeSeeds) {
     const employeePayload = await buildEmployeePayload(employee);
     await getRepository(client, EmployeeEntity).upsert(
       {
-        id: employee.id,
-        ...employeePayload
+        ...employeePayload,
       },
-      ['id']
+      ["id"],
     );
   }
 
@@ -125,120 +133,108 @@ async function upsertSeedData(client: SeedClient): Promise<void> {
     const customerPayload = await buildCustomerPayload(customer);
     await getRepository(client, CustomerEntity).upsert(
       {
-        id: customer.id,
-        ...customerPayload
+        ...customerPayload,
       },
-      ['id']
+      ["id"],
     );
   }
 
   for (const category of categorySeeds) {
     await getRepository(client, CategoryEntity).upsert(
       {
-        id: category.id,
-        ...buildCategoryPayload(category)
+        ...buildCategoryPayload(category),
       },
-      ['id']
+      ["id"],
     );
   }
 
   for (const product of productSeeds) {
     await getRepository(client, ProductEntity).upsert(
       {
-        id: product.id,
-        ...buildProductPayload(product)
+        ...buildProductPayload(product),
       },
-      ['id']
+      ["id"],
     );
   }
 
   for (const movement of inventoryMovementSeeds) {
     await getRepository(client, InventoryMovementEntity).upsert(
       {
-        id: movement.id,
-        ...buildInventoryMovementPayload(movement)
+        ...buildInventoryMovementPayload(movement),
       },
-      ['id']
+      ["id"],
     );
   }
 
   for (const order of orderSeeds) {
     await getRepository(client, OrderEntity).upsert(
       {
-        id: order.id,
-        ...buildOrderPayload(order)
+        ...buildOrderPayload(order),
       },
-      ['id']
+      ["id"],
     );
   }
 
   for (const item of orderItemSeeds) {
     await getRepository(client, OrderItemEntity).upsert(
       {
-        id: item.id,
-        ...buildOrderItemPayload(item)
+        ...buildOrderItemPayload(item),
       },
-      ['id']
+      ["id"],
     );
   }
 
   for (const payment of paymentSeeds) {
     await getRepository(client, PaymentEntity).upsert(
       {
-        id: payment.id,
-        ...buildPaymentPayload(payment)
+        ...buildPaymentPayload(payment),
       },
-      ['id']
+      ["id"],
     );
   }
 
   for (const delivery of deliverySeeds) {
     await getRepository(client, DeliveryEntity).upsert(
       {
-        id: delivery.id,
-        ...buildDeliveryPayload(delivery)
+        ...buildDeliveryPayload(delivery),
       },
-      ['orderId']
+      ["orderId"],
     );
   }
 
   for (const packagingDetail of packagingDetailSeeds) {
     await getRepository(client, PackagingDetailEntity).upsert(
       {
-        id: packagingDetail.id,
-        ...buildPackagingDetailPayload(packagingDetail)
+        ...buildPackagingDetailPayload(packagingDetail),
       },
-      ['orderId']
+      ["orderId"],
     );
   }
 
   for (const historyEntry of orderStatusHistorySeeds) {
     await getRepository(client, OrderStatusHistoryEntity).upsert(
       {
-        id: historyEntry.id,
-        ...buildOrderStatusHistoryPayload(historyEntry)
+        ...buildOrderStatusHistoryPayload(historyEntry),
       },
-      ['id']
+      ["id"],
     );
   }
 
   for (const repair of repairSeeds) {
     await getRepository(client, RepairRequestEntity).upsert(
       {
-        id: repair.id,
-        ...buildRepairPayload(repair)
+        ...buildRepairPayload(repair),
       },
-      ['id']
+      ["id"],
     );
   }
 
   for (const activity of activitySeeds) {
     await getRepository(client, ActivityEntity).upsert(
       {
-        id: activity.id,
-        ...buildActivityPayload(activity)
+        ...buildActivityPayload(activity),
       },
-      ['id']
+      ["id"],
     );
   }
 }
@@ -253,7 +249,7 @@ async function buildEmployeePayload(employee: (typeof employeeSeeds)[number]) {
     status: normalizeSeedRequiredString(employee.status),
     passwordHash: await bcrypt.hash(employee.plainPassword, 10),
     createdAt: employee.createdAt,
-    updatedAt: employee.updatedAt
+    updatedAt: employee.updatedAt,
   };
 }
 
@@ -268,7 +264,7 @@ async function buildCustomerPayload(customer: (typeof customerSeeds)[number]) {
     notes: normalizeSeedRequiredString(customer.notes),
     passwordHash: await bcrypt.hash(customer.plainPassword, 10),
     createdAt: customer.createdAt,
-    updatedAt: customer.updatedAt
+    updatedAt: customer.updatedAt,
   };
 }
 
@@ -281,7 +277,7 @@ function buildCategoryPayload(category: (typeof categorySeeds)[number]) {
     status: normalizeSeedRequiredString(category.status),
     description: normalizeSeedRequiredString(category.description),
     createdAt: category.createdAt,
-    updatedAt: category.updatedAt
+    updatedAt: category.updatedAt,
   };
 }
 
@@ -295,12 +291,12 @@ function buildProductPayload(product: (typeof productSeeds)[number]) {
     price: product.price,
     costPrice: product.costPrice,
     stockQty: product.stockQty,
-    reservedQty: 'reservedQty' in product ? product.reservedQty : 0,
+    reservedQty: "reservedQty" in product ? product.reservedQty : 0,
     slug: product.name
       .trim()
       .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, ''),
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, ""),
     minStockQty: product.minStockQty,
     status: product.status,
     shortDescription: normalizeSeedRequiredString(product.shortDescription),
@@ -310,11 +306,13 @@ function buildProductPayload(product: (typeof productSeeds)[number]) {
     primaryImage: normalizeSeedOptionalString(product.primaryImage) ?? null,
     condition: product.condition,
     createdAt: product.createdAt,
-    updatedAt: product.updatedAt
+    updatedAt: product.updatedAt,
   };
 }
 
-function buildInventoryMovementPayload(movement: (typeof inventoryMovementSeeds)[number]) {
+function buildInventoryMovementPayload(
+  movement: (typeof inventoryMovementSeeds)[number],
+) {
   return {
     productId: movement.productId,
     delta: movement.delta,
@@ -322,7 +320,7 @@ function buildInventoryMovementPayload(movement: (typeof inventoryMovementSeeds)
     reason: normalizeSeedRequiredString(movement.reason),
     referenceType: normalizeSeedOptionalString(movement.referenceType) ?? null,
     referenceId: normalizeSeedOptionalString(movement.referenceId) ?? null,
-    createdAt: movement.createdAt
+    createdAt: movement.createdAt,
   };
 }
 
@@ -343,7 +341,7 @@ function buildOrderPayload(order: (typeof orderSeeds)[number]) {
     deliveryCost: order.deliveryCost,
     total: order.total,
     createdAt: order.createdAt,
-    updatedAt: order.updatedAt
+    updatedAt: order.updatedAt,
   };
 }
 
@@ -354,7 +352,7 @@ function buildOrderItemPayload(item: (typeof orderItemSeeds)[number]) {
     productName: item.productName,
     quantity: item.quantity,
     unitPrice: item.unitPrice,
-    totalPrice: item.totalPrice
+    totalPrice: item.totalPrice,
   };
 }
 
@@ -369,7 +367,7 @@ function buildPaymentPayload(payment: (typeof paymentSeeds)[number]) {
     providerPayload: payment.providerPayload ?? null,
     paidAt: payment.paidAt,
     createdAt: payment.createdAt,
-    updatedAt: payment.updatedAt
+    updatedAt: payment.updatedAt,
   };
 }
 
@@ -379,17 +377,20 @@ function buildDeliveryPayload(delivery: (typeof deliverySeeds)[number]) {
     method: delivery.method,
     company: normalizeSeedOptionalString(delivery.company) ?? null,
     address: normalizeSeedRequiredString(delivery.address),
-    trackingNumber: normalizeSeedOptionalString(delivery.trackingNumber) ?? null,
+    trackingNumber:
+      normalizeSeedOptionalString(delivery.trackingNumber) ?? null,
     shippingCost: delivery.shippingCost,
     status: delivery.status,
     shippedAt: delivery.shippedAt,
     deliveredAt: delivery.deliveredAt,
     createdAt: delivery.createdAt,
-    updatedAt: delivery.updatedAt
+    updatedAt: delivery.updatedAt,
   };
 }
 
-function buildPackagingDetailPayload(packagingDetail: (typeof packagingDetailSeeds)[number]) {
+function buildPackagingDetailPayload(
+  packagingDetail: (typeof packagingDetailSeeds)[number],
+) {
   return {
     orderId: packagingDetail.orderId,
     status: packagingDetail.status,
@@ -398,14 +399,17 @@ function buildPackagingDetailPayload(packagingDetail: (typeof packagingDetailSee
     weightGrams: packagingDetail.weightGrams,
     dimensions: normalizeSeedOptionalString(packagingDetail.dimensions) ?? null,
     fragile: packagingDetail.fragile,
-    packageType: normalizeSeedOptionalString(packagingDetail.packageType) ?? null,
+    packageType:
+      normalizeSeedOptionalString(packagingDetail.packageType) ?? null,
     comment: normalizeSeedOptionalString(packagingDetail.comment) ?? null,
     createdAt: packagingDetail.createdAt,
-    updatedAt: packagingDetail.updatedAt
+    updatedAt: packagingDetail.updatedAt,
   };
 }
 
-function buildOrderStatusHistoryPayload(historyEntry: (typeof orderStatusHistorySeeds)[number]) {
+function buildOrderStatusHistoryPayload(
+  historyEntry: (typeof orderStatusHistorySeeds)[number],
+) {
   return {
     orderId: historyEntry.orderId,
     oldStatus: historyEntry.oldStatus,
@@ -413,7 +417,7 @@ function buildOrderStatusHistoryPayload(historyEntry: (typeof orderStatusHistory
     changedByType: historyEntry.changedByType,
     changedById: normalizeSeedOptionalString(historyEntry.changedById) ?? null,
     comment: normalizeSeedOptionalString(historyEntry.comment) ?? null,
-    changedAt: historyEntry.changedAt
+    changedAt: historyEntry.changedAt,
   };
 }
 
@@ -426,10 +430,11 @@ function buildRepairPayload(repair: (typeof repairSeeds)[number]) {
     status: repair.status,
     notes: normalizeSeedRequiredString(repair.notes),
     estimatedCost: repair.estimatedCost,
-    assignedMasterName: normalizeSeedOptionalString(repair.assignedMasterName) ?? null,
+    assignedMasterName:
+      normalizeSeedOptionalString(repair.assignedMasterName) ?? null,
     receivedAt: repair.receivedAt,
     createdAt: repair.createdAt,
-    updatedAt: repair.updatedAt
+    updatedAt: repair.updatedAt,
   };
 }
 
@@ -438,23 +443,23 @@ function buildActivityPayload(activity: (typeof activitySeeds)[number]) {
     title: activity.title,
     messageKey: activity.messageKey,
     messageParams: activity.messageParams,
-    timestamp: activity.timestamp
+    timestamp: activity.timestamp,
   };
 }
 
 async function main(): Promise<void> {
-  const mode = process.argv.includes('--mode=upsert') ? 'upsert' : 'reset';
+  const mode = process.argv.includes("--mode=upsert") ? "upsert" : "reset";
   const dataSource = AppDataSource;
 
   await dataSource.initialize();
 
   try {
-    if (mode === 'upsert') {
+    if (mode === "upsert") {
       await upsertMockSeedData(dataSource);
-      console.info('Mock database upsert seed completed.');
+      console.info("Mock database upsert seed completed.");
     } else {
       await seedDatabase(dataSource);
-      console.info('Mock database reset seed completed.');
+      console.info("Mock database reset seed completed.");
     }
   } finally {
     await dataSource.destroy();

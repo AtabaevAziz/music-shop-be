@@ -1,6 +1,5 @@
 export enum CustomerTier {
-  Standard = 'standard',
-  Studio = 'studio',
-  Vip = 'vip'
+  Standard = "standard",
+  Studio = "studio",
+  Vip = "vip",
 }
-

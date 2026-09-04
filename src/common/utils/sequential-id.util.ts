@@ -1,9 +1,9 @@
-const UNIQUE_CONSTRAINT_ERROR_CODES = new Set(['P2002', '23505']);
+const UNIQUE_CONSTRAINT_ERROR_CODES = new Set(["P2002", "23505"]);
 
 export function getNextSequentialPrefixedId(
   existingIds: string[],
   prefix: string,
-  startAt: number
+  startAt: number,
 ): string {
   const normalizedPrefix = `${prefix}-`;
   let maxSuffix = startAt - 1;
@@ -25,10 +25,10 @@ export function getNextSequentialPrefixedId(
 
 export function isUniqueConstraintError(error: unknown): boolean {
   return (
-    typeof error === 'object' &&
+    typeof error === "object" &&
     error !== null &&
-    'code' in error &&
-    typeof error.code === 'string' &&
+    "code" in error &&
+    typeof error.code === "string" &&
     UNIQUE_CONSTRAINT_ERROR_CODES.has(error.code)
   );
 }

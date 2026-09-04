@@ -1,5 +1,13 @@
-import { Type } from 'class-transformer';
-import { IsDateString, IsInt, IsOptional, IsString, IsUrl, Min, MinLength } from 'class-validator';
+import { Type } from "class-transformer";
+import {
+  IsDateString,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUrl,
+  Min,
+  MinLength,
+} from "class-validator";
 
 export class CreateRepairDto {
   @IsString()

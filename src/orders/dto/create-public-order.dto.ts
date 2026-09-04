@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Type } from "class-transformer";
 import {
   ArrayMinSize,
   IsArray,
@@ -7,11 +7,11 @@ import {
   IsOptional,
   IsString,
   MinLength,
-  ValidateNested
-} from 'class-validator';
-import { DeliveryMethod } from '../../common/enums/delivery-method.enum';
-import { PaymentMethod } from '../../common/enums/payment-method.enum';
-import { ClientOrderItemDto } from './client-order-item.dto';
+  ValidateNested,
+} from "class-validator";
+import { DeliveryMethod } from "../../common/enums/delivery-method.enum";
+import { PaymentMethod } from "../../common/enums/payment-method.enum";
+import { ClientOrderItemDto } from "./client-order-item.dto";
 
 export class CreatePublicOrderDto {
   @IsString()

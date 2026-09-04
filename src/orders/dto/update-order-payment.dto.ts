@@ -1,5 +1,5 @@
-import { IsEnum, IsOptional, IsString, MinLength } from 'class-validator';
-import { PaymentStatus } from '../../common/enums/payment-status.enum';
+import { IsEnum, IsOptional, IsString, MinLength } from "class-validator";
+import { PaymentStatus } from "../../common/enums/payment-status.enum";
 
 export class UpdateOrderPaymentDto {
   @IsEnum(PaymentStatus)

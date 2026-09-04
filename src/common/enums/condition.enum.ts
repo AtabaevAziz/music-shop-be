@@ -1,6 +1,5 @@
 export enum Condition {
-  New = 'new',
-  Used = 'used',
-  Showroom = 'showroom'
+  New = "new",
+  Used = "used",
+  Showroom = "showroom",
 }
-

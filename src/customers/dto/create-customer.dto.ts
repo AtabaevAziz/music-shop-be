@@ -1,5 +1,12 @@
-import { IsEmail, IsEnum, IsIn, IsOptional, IsString, MinLength } from 'class-validator';
-import { CustomerTier } from '../../common/enums/customer-tier.enum';
+import {
+  IsEmail,
+  IsEnum,
+  IsIn,
+  IsOptional,
+  IsString,
+  MinLength,
+} from "class-validator";
+import { CustomerTier } from "../../common/enums/customer-tier.enum";
 
 export class CreateCustomerDto {
   @IsString()
@@ -22,7 +29,7 @@ export class CreateCustomerDto {
   tier!: CustomerTier;
 
   @IsString()
-  @IsIn(['active', 'inactive'])
+  @IsIn(["active", "inactive"])
   status!: string;
 
   @IsString()

@@ -1,7 +1,7 @@
-import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { BusinessSettingsEntity, OrderEntity } from '../database/entities';
+import { Injectable } from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { BusinessSettingsEntity, OrderEntity } from "../database/entities";
 
 type FinanceSummary = {
   revenue: number;
@@ -16,7 +16,7 @@ export class FinanceService {
     @InjectRepository(OrderEntity)
     private readonly orderRepository: Repository<OrderEntity>,
     @InjectRepository(BusinessSettingsEntity)
-    private readonly settingsRepository: Repository<BusinessSettingsEntity>
+    private readonly settingsRepository: Repository<BusinessSettingsEntity>,
   ) {}
 
   async getSummary(): Promise<FinanceSummary> {
@@ -24,11 +24,11 @@ export class FinanceService {
       this.orderRepository.find({
         relations: {
           items: {
-            product: true
-          }
-        }
+            product: true,
+          },
+        },
       }),
-      this.settingsRepository.findOneBy({ id: 'business-settings' })
+      this.settingsRepository.findOneBy({ id: "business-settings" }),
     ]);
 
     let revenue = 0;
@@ -39,15 +39,15 @@ export class FinanceService {
       const orderTotal = order.total;
       const orderCost = order.items.reduce(
         (sum, item) => sum + (item.product?.costPrice ?? 0) * item.quantity,
-        0
+        0,
       );
 
-      if (!['refunded', 'cancelled', 'failed'].includes(order.paymentStatus)) {
+      if (!["refunded", "cancelled", "failed"].includes(order.paymentStatus)) {
         revenue += orderTotal;
         grossMargin += orderTotal - orderCost;
       }
 
-      if (order.paymentStatus === 'paid') {
+      if (order.paymentStatus === "paid") {
         paidOrders += 1;
       }
     }
@@ -56,7 +56,7 @@ export class FinanceService {
       revenue,
       grossMargin,
       paidOrders,
-      currency: settings?.currency ?? 'UZS'
+      currency: settings?.currency ?? "UZS",
     };
   }
 }
