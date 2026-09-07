@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
+import { ProductStatus } from "../common/enums/product-status.enum";
 import { ApiException } from "../common/exceptions/api.exception";
 import { createId } from "../common/utils/id.util";
 import { normalizeMediaPath } from "../common/utils/media.util";
@@ -46,6 +47,33 @@ export class CategoriesService {
         productCount: category.products.length,
       }),
     );
+  }
+
+  async listPublicCategories(): Promise<CategoryWire[]> {
+    const categories = await this.categoryRepository.find({
+      where: {
+        status: "active",
+      },
+      relations: {
+        products: true,
+      },
+      order: { name: "ASC" },
+    });
+
+    return categories
+      .map((category) => ({
+        ...category,
+        products: category.products.filter(
+          (product) => product.status === ProductStatus.Active,
+        ),
+      }))
+      .filter((category) => category.products.length > 0)
+      .map((category) =>
+        this.toWire({
+          ...category,
+          productCount: category.products.length,
+        }),
+      );
   }
 
   async createCategory(payload: CreateCategoryDto): Promise<CategoryWire> {

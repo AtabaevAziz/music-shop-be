@@ -3,9 +3,12 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { DataSource } from "typeorm";
 import { AppModule } from "../src/app.module";
 import { configureApp } from "../src/app.setup";
+import { OrderStatus } from "../src/common/enums/order-status.enum";
 import {
   CustomerEntity,
   InventoryMovementEntity,
+  OrderEntity,
+  OrderStatusHistoryEntity,
   ProductEntity,
 } from "../src/database/entities";
 import { seedDatabase } from "../src/database/seed";
@@ -37,6 +40,86 @@ describe("Music Shop initial phase (e2e)", () => {
         password: "amina@example.com",
       })
       .expect(200);
+  }
+
+  function buildClientOrderPayload(
+    overrides: Partial<{
+      items: Array<{ productId: string; quantity: number }>;
+      firstName: string;
+      lastName: string;
+      phone: string;
+      email: string;
+      country: string;
+      region: string;
+      city: string;
+      street: string;
+      house: string;
+      apartment: string;
+      postalCode: string;
+      paymentMethod: "cash" | "online";
+      deliveryMethod: "pickup" | "courier" | "delivery_company" | "post";
+      deliveryCompany: string;
+      comment: string;
+    }> = {},
+  ) {
+    return {
+      items: [{ productId: "product-shure-sm7b", quantity: 1 }],
+      firstName: "Amina",
+      lastName: "Karimova",
+      phone: "+998901110101",
+      email: "amina@example.com",
+      country: "Uzbekistan",
+      region: "Tashkent",
+      city: "Tashkent",
+      street: "Amir Temur",
+      house: "10A",
+      apartment: "12",
+      postalCode: "100000",
+      paymentMethod: "cash" as const,
+      deliveryMethod: "pickup" as const,
+      comment: "Please confirm pickup time.",
+      ...overrides,
+    };
+  }
+
+  function buildPublicOrderPayload(
+    overrides: Partial<{
+      items: Array<{ productId: string; quantity: number }>;
+      firstName: string;
+      lastName: string;
+      phone: string;
+      email: string;
+      country: string;
+      region: string;
+      city: string;
+      street: string;
+      house: string;
+      apartment: string;
+      postalCode: string;
+      paymentMethod: "cash" | "online";
+      deliveryMethod: "pickup" | "courier" | "delivery_company" | "post";
+      deliveryCompany: string;
+      comment: string;
+    }> = {},
+  ) {
+    return {
+      items: [{ productId: "product-shure-sm7b", quantity: 1 }],
+      firstName: "Public",
+      lastName: "Buyer",
+      phone: "+998907771122",
+      email: "PUBLIC.BUYER@example.com",
+      country: "Uzbekistan",
+      region: "Tashkent",
+      city: "Tashkent",
+      street: "Chilanzar",
+      house: "45",
+      apartment: "7",
+      postalCode: "100115",
+      paymentMethod: "online" as const,
+      deliveryMethod: "courier" as const,
+      comment: "Please call before delivery.",
+      ...overrides,
+    };
   }
 
   beforeAll(async () => {
@@ -511,6 +594,30 @@ describe("Music Shop initial phase (e2e)", () => {
       });
   });
 
+  it("returns public categories with active product counts for storefront browsing", async () => {
+    await request(app.getHttpServer())
+      .get("/api/v1/public/categories")
+      .expect(200)
+      .expect((response) => {
+        expect(response.body.items).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              id: "category-guitars",
+              slug: "guitars",
+              status: "active",
+              productCount: expect.any(Number),
+            }),
+          ]),
+        );
+        expect(
+          response.body.items.every(
+            (item: { status: string; productCount: number }) =>
+              item.status === "active" && item.productCount > 0,
+          ),
+        ).toBe(true);
+      });
+  });
+
   it("returns a public product by id for storefront details", async () => {
     await request(app.getHttpServer())
       .get("/api/v1/public/products/product-shure-sm7b")
@@ -560,7 +667,10 @@ describe("Music Shop initial phase (e2e)", () => {
       .expect(200)
       .expect((response) => {
         expect(response.body.workflows.orders.statuses).toContain(
-          "ready_for_pickup",
+          "ready_for_shipment",
+        );
+        expect(response.body.workflows.orders.statuses).toContain(
+          "sent_to_warehouse",
         );
         expect(response.body.workflows.orders.transitions.new).toEqual([
           "confirmed",
@@ -1144,43 +1254,319 @@ describe("Music Shop initial phase (e2e)", () => {
     const agent = request.agent(app.getHttpServer());
     await loginAsClient(agent);
 
+    let orderId = "";
+    let orderNumber = "";
+
     await agent
       .post("/api/v1/client/orders")
-      .send({
-        items: [
-          {
-            productId: "product-yamaha-p125",
-            qty: 1,
-            unitPrice: 8700000,
-          },
-        ],
-        notes: "Please confirm pickup time.",
-      })
+      .send(buildClientOrderPayload())
       .expect(201)
       .expect((response) => {
-        expect(response.body.order.id).toMatch(/^ORD-\d+$/);
+        orderId = response.body.order.id;
+        orderNumber = response.body.order.orderNumber;
+        expect(response.body.order.id).toMatch(/^order-/);
+        expect(response.body.order.orderNumber).toMatch(/^ORD-\d+$/);
         expect(response.body.order.customerId).toBe("customer-001");
         expect(response.body.order.status).toBe("new");
-        expect(response.body.order.items[0].unitPrice).toBe(8700000);
+        expect(response.body.order.items[0].unitPrice).toBe(4200000);
+        expect(response.body.order.customer).toEqual(
+          expect.objectContaining({
+            firstName: "Amina",
+            lastName: "Karimova",
+            phone: "+998901110101",
+            email: "amina@example.com",
+          }),
+        );
+        expect(response.body.order.address).toEqual(
+          expect.objectContaining({
+            country: "Uzbekistan",
+            city: "Tashkent",
+            postalCode: "100000",
+          }),
+        );
+        expect(response.body.order.payment).toEqual(
+          expect.objectContaining({
+            method: "cash",
+            status: "pending",
+            amount: 4200000,
+          }),
+        );
       });
 
     const updatedProduct = await dataSource
       .getRepository(ProductEntity)
       .findOneBy({
-        id: "product-yamaha-p125",
+        id: "product-shure-sm7b",
       });
     const movement = await dataSource
       .getRepository(InventoryMovementEntity)
       .findOne({
         where: {
-          productId: "product-yamaha-p125",
+          productId: "product-shure-sm7b",
+          referenceId: orderId,
           delta: -1,
         },
         order: { createdAt: "DESC" },
       });
 
-    expect(updatedProduct?.stockQty).toBe(1);
-    expect(movement?.reason).toContain("Reserved for client order");
+    expect(updatedProduct?.stockQty).toBe(6);
+    expect(updatedProduct?.reservedQty).toBe(1);
+    expect(movement?.reason).toBe(`Reserved for order ${orderNumber}`);
+    expect(movement?.type).toBe("reserve");
+  });
+
+  it("rolls back client order creation when requested stock exceeds available quantity", async () => {
+    const agent = request.agent(app.getHttpServer());
+    await loginAsClient(agent);
+
+    const orderRepository = dataSource.getRepository(OrderEntity);
+    const productRepository = dataSource.getRepository(ProductEntity);
+    const movementRepository = dataSource.getRepository(InventoryMovementEntity);
+
+    const orderCountBefore = await orderRepository.count();
+    const productBefore = await productRepository.findOneByOrFail({
+      id: "product-yamaha-p125",
+    });
+    const movementCountBefore = await movementRepository.countBy({
+      productId: "product-yamaha-p125",
+    });
+
+    await agent
+      .post("/api/v1/client/orders")
+      .send(
+        buildClientOrderPayload({
+          items: [{ productId: "product-yamaha-p125", quantity: 2 }],
+        }),
+      )
+      .expect(409);
+
+    const orderCountAfter = await orderRepository.count();
+    const productAfter = await productRepository.findOneByOrFail({
+      id: "product-yamaha-p125",
+    });
+    const movementCountAfter = await movementRepository.countBy({
+      productId: "product-yamaha-p125",
+    });
+
+    expect(orderCountAfter).toBe(orderCountBefore);
+    expect(productAfter.stockQty).toBe(productBefore.stockQty);
+    expect(productAfter.reservedQty).toBe(productBefore.reservedQty);
+    expect(movementCountAfter).toBe(movementCountBefore);
+  });
+
+  it("cancels an order once, releases reservations and writes a single cancellation history record", async () => {
+    const clientAgent = request.agent(app.getHttpServer());
+    await loginAsClient(clientAgent);
+
+    let orderId = "";
+
+    await clientAgent
+      .post("/api/v1/client/orders")
+      .send(buildClientOrderPayload())
+      .expect(201)
+      .expect((response) => {
+        orderId = response.body.order.id;
+      });
+
+    const adminAgent = request.agent(app.getHttpServer());
+    await loginAsAdmin(adminAgent);
+
+    await adminAgent
+      .post(`/api/v1/orders/${orderId}/status`)
+      .send({
+        status: "cancelled",
+        comment: "Customer requested cancellation before warehouse handoff.",
+      })
+      .expect(200)
+      .expect((response) => {
+        expect(response.body.order.status).toBe("cancelled");
+        expect(response.body.order.paymentStatus).toBe("cancelled");
+      });
+
+    const product = await dataSource.getRepository(ProductEntity).findOneByOrFail({
+      id: "product-shure-sm7b",
+    });
+    const releaseMovement = await dataSource
+      .getRepository(InventoryMovementEntity)
+      .findOne({
+        where: {
+          productId: "product-shure-sm7b",
+          referenceId: orderId,
+          delta: 1,
+        },
+        order: { createdAt: "DESC" },
+      });
+    const cancellationHistory = await dataSource
+      .getRepository(OrderStatusHistoryEntity)
+      .countBy({
+        orderId,
+        newStatus: OrderStatus.Cancelled,
+      });
+
+    expect(product.reservedQty).toBe(0);
+    expect(releaseMovement?.type).toBe("release");
+    expect(cancellationHistory).toBe(1);
+  });
+
+  it("cancels a non-terminal order when payment fails and releases reservations inside the same flow", async () => {
+    const clientAgent = request.agent(app.getHttpServer());
+    await loginAsClient(clientAgent);
+
+    let orderId = "";
+
+    await clientAgent
+      .post("/api/v1/client/orders")
+      .send(
+        buildClientOrderPayload({
+          paymentMethod: "online",
+        }),
+      )
+      .expect(201)
+      .expect((response) => {
+        orderId = response.body.order.id;
+        expect(response.body.order.paymentRedirectUrl).toBe(
+          `/payments/stub/${orderId}`,
+        );
+      });
+
+    const adminAgent = request.agent(app.getHttpServer());
+    await loginAsAdmin(adminAgent);
+
+    await adminAgent
+      .post(`/api/v1/orders/${orderId}/payment-status`)
+      .send({
+        paymentStatus: "failed",
+        provider: "stub-gateway",
+        transactionId: "stub-failed-001",
+        comment: "Payment authorization failed.",
+      })
+      .expect(200)
+      .expect((response) => {
+        expect(response.body.order.status).toBe("cancelled");
+        expect(response.body.order.paymentStatus).toBe("failed");
+      });
+
+    const product = await dataSource.getRepository(ProductEntity).findOneByOrFail({
+      id: "product-shure-sm7b",
+    });
+    const releaseMovement = await dataSource
+      .getRepository(InventoryMovementEntity)
+      .findOne({
+        where: {
+          productId: "product-shure-sm7b",
+          referenceId: orderId,
+          delta: 1,
+        },
+        order: { createdAt: "DESC" },
+      });
+
+    expect(product.reservedQty).toBe(0);
+    expect(releaseMovement?.type).toBe("release");
+  });
+
+  it("fulfills a pickup order through the full admin workflow and ships without a tracking number", async () => {
+    const clientAgent = request.agent(app.getHttpServer());
+    await loginAsClient(clientAgent);
+
+    let orderId = "";
+
+    await clientAgent
+      .post("/api/v1/client/orders")
+      .send(buildClientOrderPayload())
+      .expect(201)
+      .expect((response) => {
+        orderId = response.body.order.id;
+      });
+
+    const adminAgent = request.agent(app.getHttpServer());
+    await loginAsAdmin(adminAgent);
+
+    const transitions = [
+      { status: "confirmed" },
+      { status: "sent_to_warehouse" },
+      { status: "picking" },
+      { status: "picked" },
+      { status: "packing", packagingComment: "Started packaging." },
+      {
+        status: "packed",
+        packageType: "box",
+        weightGrams: 6800,
+        lengthCm: 70,
+        widthCm: 40,
+        heightCm: 15,
+        fragile: true,
+        packagingComment: "Packed and sealed.",
+        serialNumbers: "SHU-SM7B-001",
+      },
+      {
+        status: "ready_for_shipment",
+        packageType: "box",
+        weightGrams: 6800,
+        lengthCm: 70,
+        widthCm: 40,
+        heightCm: 15,
+        fragile: true,
+      },
+      { status: "shipped" },
+      { status: "delivered" },
+    ];
+
+    for (const payload of transitions) {
+      await adminAgent
+        .post(`/api/v1/orders/${orderId}/status`)
+        .send(payload)
+        .expect(200);
+    }
+
+    await adminAgent
+      .get(`/api/v1/orders/${orderId}`)
+      .expect(200)
+      .expect((response) => {
+        expect(response.body.order.status).toBe("delivered");
+        expect(response.body.order.packaging).toEqual(
+          expect.objectContaining({
+            status: "ready_for_shipment",
+            fragile: true,
+            packageType: "box",
+            weightGrams: 6800,
+            lengthCm: 70,
+            widthCm: 40,
+            heightCm: 15,
+          }),
+        );
+        expect(response.body.order.delivery).toEqual(
+          expect.objectContaining({
+            method: "pickup",
+            status: "delivered",
+            trackingNumber: null,
+          }),
+        );
+        expect(response.body.order.delivery.shippedAt).toEqual(expect.any(String));
+        expect(response.body.order.delivery.deliveredAt).toEqual(
+          expect.any(String),
+        );
+        expect(response.body.order.statusHistory.at(-1)?.newStatus).toBe(
+          "delivered",
+        );
+      });
+
+    const product = await dataSource.getRepository(ProductEntity).findOneByOrFail({
+      id: "product-shure-sm7b",
+    });
+    const shipMovement = await dataSource
+      .getRepository(InventoryMovementEntity)
+      .findOne({
+        where: {
+          productId: "product-shure-sm7b",
+          referenceId: orderId,
+          delta: -1,
+        },
+        order: { createdAt: "DESC" },
+      });
+
+    expect(product.stockQty).toBe(5);
+    expect(product.reservedQty).toBe(0);
+    expect(shipMovement?.type).toBe("ship");
   });
 
   it("returns only current client orders in client portal", async () => {
@@ -1197,32 +1583,40 @@ describe("Music Shop initial phase (e2e)", () => {
   });
 
   it("creates public orders and public repairs without authentication", async () => {
+    let orderNumber = "";
+
     await request(app.getHttpServer())
       .post("/api/v1/public/orders")
-      .send({
-        customerName: "  Public Buyer ",
-        phone: "+998907771122",
-        email: "PUBLIC.BUYER@example.com",
-        address: "  Tashkent city, Chilanzar district ",
-        paymentMethod: "card",
-        comment: " Please call before delivery. ",
-        items: [
-          {
-            productId: "product-shure-sm7b",
-            qty: 1,
-            unitPrice: 4200000,
-          },
-        ],
-      })
+      .send(buildPublicOrderPayload())
       .expect(201)
       .expect((response) => {
-        expect(response.body.order.id).toMatch(/^ORD-\d+$/);
+        orderNumber = response.body.order.orderNumber;
+        expect(response.body.order.id).toMatch(/^order-/);
+        expect(response.body.order.orderNumber).toMatch(/^ORD-\d+$/);
         expect(response.body.order.customerId).toMatch(/^customer/);
         expect(response.body.order.status).toBe("new");
-        expect(response.body.order.notes).toContain("Public checkout");
-        expect(response.body.order.notes).toContain(
-          "Email: public.buyer@example.com",
+        expect(response.body.order.paymentMethod).toBe("online");
+        expect(response.body.order.deliveryMethod).toBe("courier");
+        expect(response.body.order.notes).toBe("Please call before delivery.");
+        expect(response.body.order.customer).toEqual(
+          expect.objectContaining({
+            firstName: "Public",
+            lastName: "Buyer",
+            email: "public.buyer@example.com",
+          }),
         );
+      });
+
+    await request(app.getHttpServer())
+      .get(`/api/v1/public/orders/${orderNumber}`)
+      .query({
+        phone: "+998907771122",
+      })
+      .expect(200)
+      .expect((response) => {
+        expect(response.body.order.orderNumber).toBe(orderNumber);
+        expect(response.body.order.customer.phone).toBe("+998907771122");
+        expect(response.body.order.status).toBe("new");
       });
 
     await request(app.getHttpServer())

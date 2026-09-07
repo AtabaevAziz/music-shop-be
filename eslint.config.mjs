@@ -2,6 +2,7 @@ import eslint from '@eslint/js';
 import tsParser from '@typescript-eslint/parser';
 import tsPlugin from '@typescript-eslint/eslint-plugin';
 import eslintConfigPrettier from 'eslint-config-prettier';
+import globals from 'globals';
 
 export default [
   {
@@ -12,6 +13,10 @@ export default [
     files: ['**/*.ts'],
     languageOptions: {
       parser: tsParser,
+      globals: {
+        ...globals.node,
+        ...globals.jest
+      },
       parserOptions: {
         projectService: true,
         tsconfigRootDir: import.meta.dirname

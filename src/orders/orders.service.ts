@@ -198,6 +198,17 @@ type PaymentStatusUpdateContext = {
   comment?: string;
 };
 
+type PaymentStatusUpdateDetails = {
+  provider?: string;
+  transactionId?: string;
+  providerPayload?: Record<string, unknown> | null;
+};
+
+type PaymentStatusUpdateOptions = {
+  suppressReservationRelease?: boolean;
+  suppressOrderStatusSync?: boolean;
+};
+
 @Injectable()
 export class OrdersService {
   constructor(
@@ -444,6 +455,10 @@ export class OrdersService {
         {
           provider: "stub-gateway",
           transactionId: payload.transactionId ?? `stub-${Date.now()}`,
+          providerPayload: {
+            source: "stub-payment-webhook",
+            paymentStatus: payload.paymentStatus,
+          },
         },
       );
 
@@ -623,9 +638,9 @@ export class OrdersService {
           movementRepository.create({
             id: createId("movement"),
             productId,
-            delta: 0,
+            delta: -qty,
             type: InventoryMovementType.Reserve,
-            reason: `Reserved ${qty} item(s) for order ${orderNumber}`,
+            reason: `Reserved for order ${orderNumber}`,
             referenceType: "order",
             referenceId: orderId,
             createdAt,
@@ -702,7 +717,10 @@ export class OrdersService {
           comment: payload.comment ?? "Order cancelled",
         },
         {},
-        true,
+        {
+          suppressReservationRelease: true,
+          suppressOrderStatusSync: true,
+        },
       );
     }
 
@@ -777,7 +795,11 @@ export class OrdersService {
     }
 
     if (nextStatus === OrderStatus.Shipped) {
-      if (!payload.trackingNumber) {
+      const requiresTrackingNumber = this.requiresTrackingNumber(
+        order.deliveryMethod,
+      );
+
+      if (requiresTrackingNumber && !payload.trackingNumber?.trim()) {
         throw ApiException.validation(
           "Tracking number is required before shipping.",
           "trackingNumber",
@@ -823,7 +845,7 @@ export class OrdersService {
         await deliveryRepository.save({
           ...order.delivery,
           company: carrier,
-          trackingNumber: payload.trackingNumber.trim(),
+          trackingNumber: payload.trackingNumber?.trim() || null,
           status: DeliveryStatus.Shipped,
           shippedAt: now,
           updatedAt: now,
@@ -885,8 +907,8 @@ export class OrdersService {
     order: OrderRecord,
     paymentStatus: PaymentStatus,
     context: PaymentStatusUpdateContext,
-    details: { provider?: string; transactionId?: string },
-    suppressReservationRelease = false,
+    details: PaymentStatusUpdateDetails,
+    options: PaymentStatusUpdateOptions = {},
   ): Promise<void> {
     const paymentRepository = manager.getRepository(PaymentEntity);
     const orderRepository = manager.getRepository(OrderEntity);
@@ -906,6 +928,10 @@ export class OrdersService {
       status: paymentStatus,
       provider: details.provider ?? payment.provider,
       transactionId: details.transactionId ?? payment.transactionId,
+      providerPayload:
+        details.providerPayload === undefined
+          ? payment.providerPayload
+          : details.providerPayload,
       paidAt: paymentStatus === PaymentStatus.Paid ? now : payment.paidAt,
       updatedAt: now,
     });
@@ -924,11 +950,15 @@ export class OrdersService {
       order.status === OrderStatus.Shipped ||
       order.status === OrderStatus.Delivered;
 
-    if (shouldCancelOrder && !isTerminalOrderStatus) {
+    if (
+      shouldCancelOrder &&
+      !isTerminalOrderStatus &&
+      !options.suppressOrderStatusSync
+    ) {
       orderUpdateData.status = OrderStatus.Cancelled;
       orderUpdateData.cancelledAt = now;
 
-      if (!suppressReservationRelease) {
+      if (!options.suppressReservationRelease) {
         await this.releaseReservations(
           manager,
           order,
@@ -984,7 +1014,9 @@ export class OrdersService {
       const product = await productRepository.findOneBy({ id: item.productId });
 
       if (!product || product.reservedQty < item.quantity) {
-        continue;
+        throw ApiException.conflict(
+          "Reserved stock is inconsistent for release.",
+        );
       }
 
       await productRepository.save({
@@ -996,7 +1028,7 @@ export class OrdersService {
         movementRepository.create({
           id: createId("movement"),
           productId: item.productId,
-          delta: 0,
+          delta: item.quantity,
           type: InventoryMovementType.Release,
           reason,
           referenceType: "order",
@@ -1077,6 +1109,10 @@ export class OrdersService {
     }
   }
 
+  private requiresTrackingNumber(method: DeliveryMethod): boolean {
+    return method !== DeliveryMethod.Pickup;
+  }
+
   private validateDeliverySelection(payload: CreateCheckoutPayload) {
     if (
       payload.deliveryMethod === DeliveryMethod.DeliveryCompany &&
@@ -1154,7 +1190,9 @@ export class OrdersService {
           formatted: parsed.formatted,
         };
       }
-    } catch {}
+    } catch {
+      // Ignore malformed persisted snapshots and use raw value fallback.
+    }
 
     return {
       country: "",
@@ -1198,7 +1236,9 @@ export class OrdersService {
           warehouseIssueType: parsed.warehouseIssueType ?? null,
         };
       }
-    } catch {}
+    } catch {
+      // Ignore malformed persisted snapshots and use raw value fallback.
+    }
 
     return {
       comment: raw,
