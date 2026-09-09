@@ -4,7 +4,7 @@
 --   port: 5433
 --   database: music_shop
 --   schema: public
--- Prisma migrations and seed create the schema/data.
+-- TypeORM migrations and seed create the application schema/data.
 -- This file can be executed in DBeaver CE to bootstrap the schema and demo data.
 -- The bootstrap section below is destructive for the current database/schema:
 -- it drops the existing Music Shop tables/types and recreates them from scratch.
@@ -21,7 +21,7 @@ SELECT
   inet_server_addr() AS server_host,
   inet_server_port() AS server_port;
 
--- 0.1. Bootstrap final Prisma-compatible schema and demo data
+-- 0.1. Legacy destructive bootstrap/reference section; prefer TypeORM migration and seed commands.
 -- Run this block when you want to recreate the visible tables in DBeaver CE.
 
 DROP TABLE IF EXISTS "Session" CASCADE;

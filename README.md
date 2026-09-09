@@ -5,7 +5,7 @@ NestJS backend for the Music Shop frontend contract.
 ## Stack
 
 - NestJS
-- Prisma
+- TypeORM
 - PostgreSQL
 - Cookie-based server sessions
 
@@ -67,19 +67,18 @@ NestJS backend for the Music Shop frontend contract.
 1. Copy `.env.example` to `.env`.
 2. Ensure PostgreSQL is running and `DATABASE_URL` points to a writable database.
 3. Install dependencies with `npm install`.
-4. Generate Prisma client with `npx prisma generate`.
-5. Apply the initial migration with `npx prisma migrate dev`.
-6. Seed demo data with `npx prisma db seed`.
-7. Start the app with `npm run start:dev`.
-8. With `AUTO_SEED_MOCK_DATA=true`, the backend also upserts the canonical mock dataset on startup so empty API tables become visible immediately.
+4. Apply the initial migration with `npm run db:migrate`.
+5. Seed demo data with `npm run db:seed:upsert`.
+6. Start the app with `npm run start:dev`.
+7. With `AUTO_SEED_MOCK_DATA=true`, the backend also upserts the canonical mock dataset on startup so empty API tables become visible immediately.
 
 Schema source of truth:
 
-- Prisma schema: `prisma/schema.prisma`
-- Prisma migrations: `prisma/migrations/*`
-- Seed data loader: `prisma/seed.ts`
-- Mock dataset files: `prisma/data/*`
-- Root `Musicshop.sql` is the canonical SQL bootstrap/reference for the public tables mock dataset; `prisma/seed.ts` reproduces the same rows programmatically
+- TypeORM entities: `src/database/entities/*`
+- TypeORM migrations: `src/database/migrations/*`
+- Seed data loader: `src/database/seed.ts`
+- Mock dataset files: `src/database/seed-data/*`
+- Root `Musicshop.sql` is a legacy reporting/reference script; the application schema is managed by TypeORM migrations.
 - `AUTO_SEED_MOCK_DATA=true` makes the backend upsert the canonical mock dataset on startup without touching `Session`
 
 Local PostgreSQL options:
@@ -91,8 +90,7 @@ Local PostgreSQL options:
   `postgresql.psql -U postgres -h /tmp`
   inside `psql`, run `ALTER USER postgres WITH PASSWORD 'postgres';` and `CREATE DATABASE music_shop;`
   use `DATABASE_URL=postgresql://postgres:postgres@localhost/music_shop?socket=/tmp`
-  then run `npx prisma migrate dev`, `npx prisma db seed`, and `npm run start:dev`
-  
+  then run `npm run db:migrate`, `npm run db:seed:upsert`, and `npm run start:dev`
 Default local setup:
 
 - backend: `http://localhost:8080`
@@ -127,8 +125,8 @@ npm run smoke:local-auth
 Seed commands:
 
 ```bash
-npx prisma db seed
-npm run prisma:seed:upsert
+npm run db:seed
+npm run db:seed:upsert
 ```
 
 ## Demo accounts

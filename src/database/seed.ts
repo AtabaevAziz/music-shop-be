@@ -1,4 +1,5 @@
 import * as bcrypt from "bcrypt";
+import "dotenv/config";
 import {
   DataSource,
   EntityManager,
@@ -123,6 +124,7 @@ async function upsertSeedData(client: SeedClient): Promise<void> {
     const employeePayload = await buildEmployeePayload(employee);
     await getRepository(client, EmployeeEntity).upsert(
       {
+        id: employee.id,
         ...employeePayload,
       },
       ["id"],
@@ -133,6 +135,7 @@ async function upsertSeedData(client: SeedClient): Promise<void> {
     const customerPayload = await buildCustomerPayload(customer);
     await getRepository(client, CustomerEntity).upsert(
       {
+        id: customer.id,
         ...customerPayload,
       },
       ["id"],
@@ -142,6 +145,7 @@ async function upsertSeedData(client: SeedClient): Promise<void> {
   for (const category of categorySeeds) {
     await getRepository(client, CategoryEntity).upsert(
       {
+        id: category.id,
         ...buildCategoryPayload(category),
       },
       ["id"],
@@ -151,6 +155,7 @@ async function upsertSeedData(client: SeedClient): Promise<void> {
   for (const product of productSeeds) {
     await getRepository(client, ProductEntity).upsert(
       {
+        id: product.id,
         ...buildProductPayload(product),
       },
       ["id"],
@@ -160,6 +165,7 @@ async function upsertSeedData(client: SeedClient): Promise<void> {
   for (const movement of inventoryMovementSeeds) {
     await getRepository(client, InventoryMovementEntity).upsert(
       {
+        id: movement.id,
         ...buildInventoryMovementPayload(movement),
       },
       ["id"],
@@ -169,6 +175,7 @@ async function upsertSeedData(client: SeedClient): Promise<void> {
   for (const order of orderSeeds) {
     await getRepository(client, OrderEntity).upsert(
       {
+        id: order.id,
         ...buildOrderPayload(order),
       },
       ["id"],
@@ -178,6 +185,7 @@ async function upsertSeedData(client: SeedClient): Promise<void> {
   for (const item of orderItemSeeds) {
     await getRepository(client, OrderItemEntity).upsert(
       {
+        id: item.id,
         ...buildOrderItemPayload(item),
       },
       ["id"],
@@ -187,6 +195,7 @@ async function upsertSeedData(client: SeedClient): Promise<void> {
   for (const payment of paymentSeeds) {
     await getRepository(client, PaymentEntity).upsert(
       {
+        id: payment.id,
         ...buildPaymentPayload(payment),
       },
       ["id"],
@@ -196,6 +205,7 @@ async function upsertSeedData(client: SeedClient): Promise<void> {
   for (const delivery of deliverySeeds) {
     await getRepository(client, DeliveryEntity).upsert(
       {
+        id: delivery.id,
         ...buildDeliveryPayload(delivery),
       },
       ["orderId"],
@@ -205,6 +215,7 @@ async function upsertSeedData(client: SeedClient): Promise<void> {
   for (const packagingDetail of packagingDetailSeeds) {
     await getRepository(client, PackagingDetailEntity).upsert(
       {
+        id: packagingDetail.id,
         ...buildPackagingDetailPayload(packagingDetail),
       },
       ["orderId"],
@@ -214,6 +225,7 @@ async function upsertSeedData(client: SeedClient): Promise<void> {
   for (const historyEntry of orderStatusHistorySeeds) {
     await getRepository(client, OrderStatusHistoryEntity).upsert(
       {
+        id: historyEntry.id,
         ...buildOrderStatusHistoryPayload(historyEntry),
       },
       ["id"],
@@ -223,6 +235,7 @@ async function upsertSeedData(client: SeedClient): Promise<void> {
   for (const repair of repairSeeds) {
     await getRepository(client, RepairRequestEntity).upsert(
       {
+        id: repair.id,
         ...buildRepairPayload(repair),
       },
       ["id"],
@@ -232,6 +245,7 @@ async function upsertSeedData(client: SeedClient): Promise<void> {
   for (const activity of activitySeeds) {
     await getRepository(client, ActivityEntity).upsert(
       {
+        id: activity.id,
         ...buildActivityPayload(activity),
       },
       ["id"],
