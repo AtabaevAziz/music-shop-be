@@ -45,9 +45,7 @@ export class AuthController {
   }
 
   @Get("session")
-  async getSession(
-    @Req() request: Request,
-  ): Promise<{
+  async getSession(@Req() request: Request): Promise<{
     session: { role: string; name: string; customerId?: string } | null;
   }> {
     const session = await this.sessionService.resolveRequestSession(

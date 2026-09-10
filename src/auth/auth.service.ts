@@ -20,9 +20,7 @@ export class AuthService {
     private readonly sessionService: SessionService,
   ) {}
 
-  async login(
-    payload: LoginDto,
-  ): Promise<{
+  async login(payload: LoginDto): Promise<{
     sessionId: string;
     session: { role: string; name: string; customerId?: string };
   }> {
@@ -73,9 +71,7 @@ export class AuthService {
     return this.sessionService.createCustomerSession(customer);
   }
 
-  async register(
-    payload: RegisterDto,
-  ): Promise<{
+  async register(payload: RegisterDto): Promise<{
     sessionId: string;
     session: { role: string; name: string; customerId?: string };
   }> {

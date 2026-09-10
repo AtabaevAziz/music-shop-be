@@ -1321,7 +1321,9 @@ describe("Music Shop initial phase (e2e)", () => {
 
     const orderRepository = dataSource.getRepository(OrderEntity);
     const productRepository = dataSource.getRepository(ProductEntity);
-    const movementRepository = dataSource.getRepository(InventoryMovementEntity);
+    const movementRepository = dataSource.getRepository(
+      InventoryMovementEntity,
+    );
 
     const orderCountBefore = await orderRepository.count();
     const productBefore = await productRepository.findOneByOrFail({
@@ -1383,9 +1385,11 @@ describe("Music Shop initial phase (e2e)", () => {
         expect(response.body.order.paymentStatus).toBe("cancelled");
       });
 
-    const product = await dataSource.getRepository(ProductEntity).findOneByOrFail({
-      id: "product-shure-sm7b",
-    });
+    const product = await dataSource
+      .getRepository(ProductEntity)
+      .findOneByOrFail({
+        id: "product-shure-sm7b",
+      });
     const releaseMovement = await dataSource
       .getRepository(InventoryMovementEntity)
       .findOne({
@@ -1446,9 +1450,11 @@ describe("Music Shop initial phase (e2e)", () => {
         expect(response.body.order.paymentStatus).toBe("failed");
       });
 
-    const product = await dataSource.getRepository(ProductEntity).findOneByOrFail({
-      id: "product-shure-sm7b",
-    });
+    const product = await dataSource
+      .getRepository(ProductEntity)
+      .findOneByOrFail({
+        id: "product-shure-sm7b",
+      });
     const releaseMovement = await dataSource
       .getRepository(InventoryMovementEntity)
       .findOne({
@@ -1541,7 +1547,9 @@ describe("Music Shop initial phase (e2e)", () => {
             trackingNumber: null,
           }),
         );
-        expect(response.body.order.delivery.shippedAt).toEqual(expect.any(String));
+        expect(response.body.order.delivery.shippedAt).toEqual(
+          expect.any(String),
+        );
         expect(response.body.order.delivery.deliveredAt).toEqual(
           expect.any(String),
         );
@@ -1550,9 +1558,11 @@ describe("Music Shop initial phase (e2e)", () => {
         );
       });
 
-    const product = await dataSource.getRepository(ProductEntity).findOneByOrFail({
-      id: "product-shure-sm7b",
-    });
+    const product = await dataSource
+      .getRepository(ProductEntity)
+      .findOneByOrFail({
+        id: "product-shure-sm7b",
+      });
     const shipMovement = await dataSource
       .getRepository(InventoryMovementEntity)
       .findOne({

@@ -18,9 +18,7 @@ export class SettingsController {
   }
 
   @Put()
-  async updateSettings(
-    @Body() payload: UpdateSettingsDto,
-  ): Promise<{
+  async updateSettings(@Body() payload: UpdateSettingsDto): Promise<{
     settings: Awaited<ReturnType<SettingsService["updateSettings"]>>;
   }> {
     const settings = await this.settingsService.updateSettings(payload);
