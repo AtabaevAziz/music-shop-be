@@ -15,6 +15,7 @@ import { ProductStatus } from "../../common/enums/product-status.enum";
 import { CategoryEntity } from "./category.entity";
 import { InventoryMovementEntity } from "./inventory-movement.entity";
 import { OrderItemEntity } from "./order-item.entity";
+import { ProductVariantEntity } from "./product-variant.entity";
 
 @Entity({ name: "Product" })
 @Unique("Product_slug_key", ["slug"])
@@ -110,4 +111,7 @@ export class ProductEntity {
 
   @OneToMany(() => OrderItemEntity, (orderItem) => orderItem.product)
   orderItems!: OrderItemEntity[];
+
+  @OneToMany(() => ProductVariantEntity, (variant) => variant.product)
+  variants!: ProductVariantEntity[];
 }

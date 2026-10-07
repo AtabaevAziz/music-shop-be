@@ -12,6 +12,7 @@ import {
   PackagingDetailEntity,
   PaymentEntity,
   ProductEntity,
+  ProductVariantEntity,
   RepairRequestEntity,
   SessionEntity,
 } from "./entities";
@@ -22,6 +23,7 @@ export const DATABASE_ENTITIES = [
   SessionEntity,
   CategoryEntity,
   ProductEntity,
+  ProductVariantEntity,
   InventoryMovementEntity,
   OrderEntity,
   OrderItemEntity,

@@ -8,6 +8,7 @@ import {
 } from "typeorm";
 import { OrderEntity } from "./order.entity";
 import { ProductEntity } from "./product.entity";
+import { ProductVariantEntity } from "./product-variant.entity";
 
 @Entity({ name: "OrderItem" })
 @Index("OrderItem_orderId_idx", ["orderId"])
@@ -21,6 +22,12 @@ export class OrderItemEntity {
 
   @Column({ type: "text", name: "productId" })
   productId!: string;
+
+  @Column({ type: "text", name: "variantId", nullable: true })
+  variantId!: string | null;
+
+  @Column({ type: "text", name: "variantName", nullable: true })
+  variantName!: string | null;
 
   @Column({ type: "text", name: "productName" })
   productName!: string;
@@ -43,4 +50,8 @@ export class OrderItemEntity {
   })
   @JoinColumn({ name: "productId", referencedColumnName: "id" })
   product!: ProductEntity;
+
+  @ManyToOne(() => ProductVariantEntity, { onDelete: "RESTRICT", nullable: true })
+  @JoinColumn({ name: "variantId", referencedColumnName: "id" })
+  variant!: ProductVariantEntity | null;
 }

@@ -6,6 +6,7 @@ import {
   InventoryMovementEntity,
   OrderItemEntity,
   ProductEntity,
+  ProductVariantEntity,
 } from "../database/entities";
 import { PublicProductsController } from "./public-products.controller";
 import { ProductsController } from "./products.controller";
@@ -19,6 +20,7 @@ import { ProductsService } from "./products.service";
       CategoryEntity,
       InventoryMovementEntity,
       OrderItemEntity,
+      ProductVariantEntity,
     ]),
   ],
   controllers: [ProductsController, PublicProductsController],

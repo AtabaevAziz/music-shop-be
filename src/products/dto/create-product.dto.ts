@@ -9,9 +9,11 @@ import {
   IsString,
   Min,
   MinLength,
+  ValidateNested,
 } from "class-validator";
 import { Condition } from "../../common/enums/condition.enum";
 import { ProductStatus } from "../../common/enums/product-status.enum";
+import { ProductVariantDto } from "./product-variant.dto";
 
 export class CreateProductDto {
   @IsString()
@@ -79,4 +81,10 @@ export class CreateProductDto {
 
   @IsEnum(Condition)
   condition!: Condition;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ProductVariantDto)
+  variants?: ProductVariantDto[];
 }

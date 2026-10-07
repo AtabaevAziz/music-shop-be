@@ -7,12 +7,14 @@ import {
   ActivityEntity,
   InventoryMovementEntity,
   ProductEntity,
+  ProductVariantEntity,
 } from "../database/entities";
 import { InventoryAdjustmentDto } from "./dto/inventory-adjustment.dto";
 
 type InventoryMovementWire = {
   id: string;
   productId: string;
+  variantId: string | null;
   delta: number;
   reason: string;
   createdAt: Date;
@@ -47,14 +49,34 @@ export class InventoryService {
   }> {
     const result = await this.dataSource.transaction(async (manager) => {
       const productRepository = manager.getRepository(ProductEntity);
+      const variantRepository = manager.getRepository(ProductVariantEntity);
       const movementRepository = manager.getRepository(InventoryMovementEntity);
       const activityRepository = manager.getRepository(ActivityEntity);
-      const product = await productRepository.findOneBy({
-        id: payload.productId,
-      });
+      const product = await productRepository
+        .createQueryBuilder("product")
+        .where("product.id = :id", { id: payload.productId })
+        .setLock("pessimistic_write")
+        .getOne();
 
       if (!product) {
         throw ApiException.validation("Product must exist.", "productId");
+      }
+
+      const variant = payload.variantId
+        ? await variantRepository
+            .createQueryBuilder("variant")
+            .where("variant.id = :id", { id: payload.variantId })
+            .setLock("pessimistic_write")
+            .getOne()
+        : null;
+      if (payload.variantId && (!variant || variant.productId !== product.id)) {
+        throw ApiException.validation("Variant must belong to the selected product.", "variantId");
+      }
+      if (variant && variant.stockQty + payload.delta < 0) {
+        throw ApiException.conflict("Inventory adjustment would produce negative variant stock.");
+      }
+      if (variant && variant.reservedQty > variant.stockQty + payload.delta) {
+        throw ApiException.conflict("Inventory adjustment cannot go below reserved stock.");
       }
 
       const nextStockQty = product.stockQty + payload.delta;
@@ -67,13 +89,21 @@ export class InventoryService {
 
       const updatedProduct = await productRepository.save({
         ...product,
-        stockQty: nextStockQty,
+        stockQty: variant ? product.stockQty + payload.delta : nextStockQty,
       });
+
+      if (variant) {
+        await variantRepository.save({
+          ...variant,
+          stockQty: variant.stockQty + payload.delta,
+        });
+      }
 
       const movement = await movementRepository.save(
         movementRepository.create({
           id: createId("movement"),
           productId: product.id,
+          variantId: variant?.id ?? null,
           delta: payload.delta,
           reason: payload.reason.trim(),
         }),
@@ -107,6 +137,7 @@ export class InventoryService {
     return {
       id: item.id,
       productId: item.productId,
+      variantId: item.variantId,
       delta: item.delta,
       reason: item.reason,
       createdAt: item.createdAt,

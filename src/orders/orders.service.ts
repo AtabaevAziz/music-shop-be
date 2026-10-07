@@ -31,6 +31,7 @@ import {
   PackagingDetailEntity,
   PaymentEntity,
   ProductEntity,
+  ProductVariantEntity,
 } from "../database/entities";
 import { CreateClientOrderDto } from "./dto/create-client-order.dto";
 import { StubPaymentWebhookDto } from "./dto/stub-payment-webhook.dto";
@@ -119,6 +120,8 @@ type OrderWire = {
   address: OrderAddressSnapshot;
   items: Array<{
     productId: string;
+    variantId: string | null;
+    variantName: string | null;
     productName: string;
     qty: number;
     quantity: number;
@@ -483,12 +486,21 @@ export class OrdersService {
         manager,
         payload.items,
       );
+      const variants = await this.loadVariantsForCheckout(manager, payload.items);
       const stockDemand = this.getStockDemand(payload.items);
 
       for (const [productId, requestedQty] of stockDemand.entries()) {
         const product = products.get(productId);
-        const availableQty =
-          (product?.stockQty ?? 0) - (product?.reservedQty ?? 0);
+        const itemVariants = payload.items
+          .filter((item) => item.productId === productId)
+          .map((item) => item.variantId ? variants.get(item.variantId) : null)
+          .filter((variant): variant is ProductVariantEntity => Boolean(variant));
+        const availableQty = itemVariants.length
+          ? itemVariants.reduce(
+              (sum, variant) => sum + variant.stockQty - variant.reservedQty,
+              0,
+            )
+          : (product?.stockQty ?? 0) - (product?.reservedQty ?? 0);
 
         if (!product || availableQty < requestedQty) {
           throw ApiException.conflict(
@@ -499,7 +511,8 @@ export class OrdersService {
 
       const subtotal = payload.items.reduce((sum, item) => {
         const product = products.get(item.productId)!;
-        return sum + product.price * this.getItemQuantity(item);
+        const variant = item.variantId ? variants.get(item.variantId) : undefined;
+        return sum + (variant?.price ?? product.price) * this.getItemQuantity(item);
       }, 0);
       const deliveryCost = this.resolveDeliveryCost(payload.deliveryMethod);
       const total = subtotal + deliveryCost;
@@ -518,6 +531,7 @@ export class OrdersService {
         OrderStatusHistoryEntity,
       );
       const productRepository = manager.getRepository(ProductEntity);
+      const variantRepository = manager.getRepository(ProductVariantEntity);
       const movementRepository = manager.getRepository(InventoryMovementEntity);
 
       await orderRepository.save(
@@ -546,16 +560,19 @@ export class OrdersService {
       await orderItemRepository.save(
         payload.items.map((item) => {
           const product = products.get(item.productId)!;
+          const variant = item.variantId ? variants.get(item.variantId) : undefined;
           const quantity = this.getItemQuantity(item);
 
           return orderItemRepository.create({
             id: createId("order-item"),
             orderId,
             productId: product.id,
-            productName: product.name,
+            variantId: variant?.id ?? null,
+            variantName: variant?.colorName ?? null,
+            productName: variant ? `${product.name} · ${variant.colorName}` : product.name,
             quantity,
-            unitPrice: product.price,
-            totalPrice: product.price * quantity,
+            unitPrice: variant?.price ?? product.price,
+            totalPrice: (variant?.price ?? product.price) * quantity,
           });
         }),
       );
@@ -648,6 +665,17 @@ export class OrdersService {
         );
       }
 
+      for (const item of payload.items) {
+        if (!item.variantId) {
+          continue;
+        }
+        const variant = variants.get(item.variantId)!;
+        await variantRepository.save({
+          ...variant,
+          reservedQty: variant.reservedQty + this.getItemQuantity(item),
+        });
+      }
+
       await this.recordActivity(
         manager,
         "activity.orderCreated",
@@ -679,6 +707,7 @@ export class OrdersService {
     const packagingRepository = manager.getRepository(PackagingDetailEntity);
     const deliveryRepository = manager.getRepository(DeliveryEntity);
     const productRepository = manager.getRepository(ProductEntity);
+    const variantRepository = manager.getRepository(ProductVariantEntity);
     const movementRepository = manager.getRepository(InventoryMovementEntity);
     const orderRepository = manager.getRepository(OrderEntity);
     const statusHistoryRepository = manager.getRepository(
@@ -826,6 +855,25 @@ export class OrdersService {
           stockQty: product.stockQty - item.quantity,
           reservedQty: product.reservedQty - item.quantity,
         });
+
+        if (item.variantId) {
+          const variant = await variantRepository.findOneBy({ id: item.variantId });
+          if (
+            !variant ||
+            variant.productId !== item.productId ||
+            variant.reservedQty < item.quantity ||
+            variant.stockQty < item.quantity
+          ) {
+            throw ApiException.conflict(
+              "Reserved variant stock is inconsistent for shipment.",
+            );
+          }
+          await variantRepository.save({
+            ...variant,
+            stockQty: variant.stockQty - item.quantity,
+            reservedQty: variant.reservedQty - item.quantity,
+          });
+        }
 
         await movementRepository.save(
           movementRepository.create({
@@ -1008,6 +1056,7 @@ export class OrdersService {
     createdAt: Date,
   ): Promise<void> {
     const productRepository = manager.getRepository(ProductEntity);
+    const variantRepository = manager.getRepository(ProductVariantEntity);
     const movementRepository = manager.getRepository(InventoryMovementEntity);
 
     for (const item of order.items) {
@@ -1023,6 +1072,17 @@ export class OrdersService {
         ...product,
         reservedQty: product.reservedQty - item.quantity,
       });
+
+      if (item.variantId) {
+        const variant = await variantRepository.findOneBy({ id: item.variantId });
+        if (!variant || variant.reservedQty < item.quantity) {
+          throw ApiException.conflict("Reserved variant stock is inconsistent for release.");
+        }
+        await variantRepository.save({
+          ...variant,
+          reservedQty: variant.reservedQty - item.quantity,
+        });
+      }
 
       await movementRepository.save(
         movementRepository.create({
@@ -1046,9 +1106,12 @@ export class OrdersService {
     const requestedProductIds = [
       ...new Set(items.map((item) => item.productId)),
     ];
-    const products = await manager.getRepository(ProductEntity).findBy({
-      id: In(requestedProductIds),
-    });
+    const products = await manager
+      .getRepository(ProductEntity)
+      .createQueryBuilder("product")
+      .where("product.id IN (:...ids)", { ids: requestedProductIds })
+      .setLock("pessimistic_write")
+      .getMany();
 
     const productMap = new Map(
       products.map((product) => [product.id, product]),
@@ -1074,6 +1137,39 @@ export class OrdersService {
     }
 
     return productMap;
+  }
+
+  private async loadVariantsForCheckout(
+    manager: EntityManager,
+    items: CreateClientOrderDto["items"],
+  ): Promise<Map<string, ProductVariantEntity>> {
+    const variantIds = [...new Set(items.map((item) => item.variantId).filter(Boolean))] as string[];
+    if (variantIds.length === 0) {
+      return new Map();
+    }
+
+    const variants = await manager
+      .getRepository(ProductVariantEntity)
+      .createQueryBuilder("variant")
+      .where("variant.id IN (:...ids)", { ids: variantIds })
+      .setLock("pessimistic_write")
+      .getMany();
+    const variantMap = new Map(variants.map((variant) => [variant.id, variant]));
+
+    for (const item of items) {
+      if (!item.variantId) {
+        continue;
+      }
+      const variant = variantMap.get(item.variantId);
+      if (!variant || variant.productId !== item.productId) {
+        throw ApiException.validation("Variant must belong to the selected product.", "items");
+      }
+      if (variant.status !== "active") {
+        throw ApiException.conflict("Only active product variants can be ordered.");
+      }
+    }
+
+    return variantMap;
   }
 
   private getStockDemand(items: CreateClientOrderDto["items"]) {
@@ -1481,6 +1577,8 @@ export class OrdersService {
       address: addressSnapshot,
       items: order.items.map((item) => ({
         productId: item.productId,
+        variantId: item.variantId,
+        variantName: item.variantName,
         productName: item.productName,
         qty: item.quantity,
         quantity: item.quantity,

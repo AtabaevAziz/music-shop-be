@@ -11,5 +11,6 @@ export { OrderStatusHistoryEntity } from "./order-status-history.entity";
 export { PackagingDetailEntity } from "./packaging-detail.entity";
 export { PaymentEntity } from "./payment.entity";
 export { ProductEntity } from "./product.entity";
+export { ProductVariantEntity } from "./product-variant.entity";
 export { RepairRequestEntity } from "./repair-request.entity";
 export { SessionEntity } from "./session.entity";

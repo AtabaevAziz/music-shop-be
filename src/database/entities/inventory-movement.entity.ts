@@ -9,6 +9,7 @@ import {
 } from "typeorm";
 import { InventoryMovementType } from "../../common/enums/inventory-movement-type.enum";
 import { ProductEntity } from "./product.entity";
+import { ProductVariantEntity } from "./product-variant.entity";
 
 @Entity({ name: "InventoryMovement" })
 @Index("InventoryMovement_productId_idx", ["productId"])
@@ -19,6 +20,9 @@ export class InventoryMovementEntity {
 
   @Column({ type: "text", name: "productId" })
   productId!: string;
+
+  @Column({ type: "text", name: "variantId", nullable: true })
+  variantId!: string | null;
 
   @Column({ type: "integer", name: "delta" })
   delta!: number;
@@ -49,4 +53,8 @@ export class InventoryMovementEntity {
   })
   @JoinColumn({ name: "productId", referencedColumnName: "id" })
   product!: ProductEntity;
+
+  @ManyToOne(() => ProductVariantEntity, { onDelete: "RESTRICT", nullable: true })
+  @JoinColumn({ name: "variantId", referencedColumnName: "id" })
+  variant!: ProductVariantEntity | null;
 }

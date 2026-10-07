@@ -157,4 +157,15 @@ export const categorySeeds = [
     createdAt: new Date("2026-07-10T12:45:00.000Z"),
     updatedAt: new Date("2026-07-10T12:45:00.000Z"),
   },
+  {
+    id: "category-imported-assets",
+    name: "Imported Instruments",
+    slug: "imported-instruments",
+    parentId: null,
+    image: "/assets/split-1c18797c-f2fd-407a-89ab-10b9129d57c5-01.png",
+    status: "inactive",
+    description: "Draft category for imported artwork awaiting merchandising review.",
+    createdAt: new Date("2026-10-07T10:00:00.000Z"),
+    updatedAt: new Date("2026-10-07T10:00:00.000Z"),
+  },
 ] as const;

@@ -19,7 +19,8 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "db:migrate": "typeorm-ts-node-commonjs -d src/database/typeorm.datasource.ts migration:run",
     "db:seed": "tsx src/database/seed.ts",
-    "db:seed:upsert": "tsx src/database/seed.ts --mode=upsert"
+    "db:seed:upsert": "tsx src/database/seed.ts --mode=upsert",
+    "db:import-assets": "tsx scripts/import-product-assets.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.2",

@@ -1,9 +1,13 @@
 import { Type } from "class-transformer";
-import { IsInt, IsString, MinLength } from "class-validator";
+import { IsInt, IsOptional, IsString, MinLength } from "class-validator";
 
 export class InventoryAdjustmentDto {
   @IsString()
   productId!: string;
+
+  @IsOptional()
+  @IsString()
+  variantId?: string;
 
   @Type(() => Number)
   @IsInt()

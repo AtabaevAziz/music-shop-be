@@ -6,6 +6,10 @@ export class ClientOrderItemDto {
   productId!: string;
 
   @IsOptional()
+  @IsString()
+  variantId?: string;
+
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)

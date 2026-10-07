@@ -37,6 +37,7 @@ import {
   PackagingDetailEntity,
   PaymentEntity,
   ProductEntity,
+  ProductVariantEntity,
   RepairRequestEntity,
   SessionEntity,
 } from "./entities";
@@ -157,6 +158,28 @@ async function upsertSeedData(client: SeedClient): Promise<void> {
       {
         id: product.id,
         ...buildProductPayload(product),
+      },
+      ["id"],
+    );
+
+    await getRepository(client, ProductVariantEntity).upsert(
+      {
+        id: `variant-${product.id}`,
+        productId: product.id,
+        colorKey: "default",
+        colorName: "Default",
+        sku: product.sku,
+        barcode: normalizeSeedOptionalString(product.barcode) ?? null,
+        price: product.price,
+        costPrice: product.costPrice,
+        stockQty: product.stockQty,
+        reservedQty: "reservedQty" in product ? product.reservedQty : 0,
+        minStockQty: product.minStockQty ?? null,
+        status: product.status,
+        images: [...product.images],
+        primaryImage: normalizeSeedOptionalString(product.primaryImage) ?? null,
+        createdAt: product.createdAt,
+        updatedAt: product.updatedAt,
       },
       ["id"],
     );

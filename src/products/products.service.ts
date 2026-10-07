@@ -8,7 +8,11 @@ import { createId } from "../common/utils/id.util";
 import { normalizeMediaPath } from "../common/utils/media.util";
 import { slugify } from "../common/utils/slug.util";
 import { isAbsolutePathOrUrl } from "../common/utils/url.util";
-import { CategoryEntity, ProductEntity } from "../database/entities";
+import {
+  CategoryEntity,
+  ProductEntity,
+  ProductVariantEntity,
+} from "../database/entities";
 import { CreateProductDto } from "./dto/create-product.dto";
 import { ProductImageDto } from "./dto/product-image.dto";
 import { UpdateProductDto } from "./dto/update-product.dto";
@@ -36,6 +40,24 @@ type ProductWire = {
   condition: string;
   createdAt: Date;
   updatedAt: Date;
+  variants: ProductVariantWire[];
+};
+
+type ProductVariantWire = {
+  id: string;
+  colorKey: string;
+  colorName: string;
+  sku: string;
+  barcode: string | null;
+  price: number;
+  costPrice: number;
+  stockQty: number;
+  reservedQty: number;
+  availableQty: number;
+  minStockQty?: number;
+  status: string;
+  images: string[];
+  primaryImage: string | null;
 };
 
 type ProductFilters = {
@@ -67,6 +89,7 @@ type PublicProductWire = {
     image: string;
   };
   brand: string;
+  variants: ProductVariantWire[];
 };
 
 type ProductWithRelations = ProductEntity & {
@@ -80,6 +103,8 @@ export class ProductsService {
     private readonly productRepository: Repository<ProductEntity>,
     @InjectRepository(CategoryEntity)
     private readonly categoryRepository: Repository<CategoryEntity>,
+    @InjectRepository(ProductVariantEntity)
+    private readonly variantRepository: Repository<ProductVariantEntity>,
   ) {}
 
   async listProducts(filters: ProductFilters = {}): Promise<ProductWire[]> {
@@ -118,7 +143,10 @@ export class ProductsService {
       );
     }
 
-    const products = await query.orderBy("product.name", "ASC").getMany();
+    const products = await query
+      .leftJoinAndSelect("product.variants", "variant")
+      .orderBy("product.name", "ASC")
+      .getMany();
 
     return products.map((product) => this.toWire(product));
   }
@@ -133,7 +161,11 @@ export class ProductsService {
     const query = this.productRepository
       .createQueryBuilder("product")
       .leftJoinAndSelect("product.category", "category")
-      .where("product.status = :status", { status: ProductStatus.Active });
+      .leftJoinAndSelect("product.variants", "variant")
+      .where("product.status = :status", { status: ProductStatus.Active })
+      .andWhere("category.status = :categoryStatus", {
+        categoryStatus: "active",
+      });
 
     if (filters.search) {
       query.andWhere(
@@ -163,13 +195,14 @@ export class ProductsService {
   }
 
   async getPublicProduct(id: string): Promise<PublicProductWire> {
-    const product = await this.productRepository.findOne({
+      const product = await this.productRepository.findOne({
       where: {
         id,
         status: ProductStatus.Active,
       },
       relations: {
         category: true,
+        variants: true,
       },
     });
 
@@ -177,11 +210,18 @@ export class ProductsService {
       throw ApiException.notFound("Product was not found.");
     }
 
+    if (product.category.status !== "active") {
+      throw ApiException.notFound("Product was not found.");
+    }
+
     return this.toPublicWire(product as ProductWithRelations);
   }
 
   async getProduct(id: string): Promise<ProductWire> {
-    const product = await this.productRepository.findOneBy({ id });
+    const product = await this.productRepository.findOne({
+      where: { id },
+      relations: { variants: true },
+    });
 
     if (!product) {
       throw ApiException.notFound("Product was not found.");
@@ -222,14 +262,16 @@ export class ProductsService {
       }),
     );
 
-    return this.toWire(product);
+    await this.saveVariants(product.id, payload.variants, product);
+
+    return this.toWire(await this.getProductEntity(product.id));
   }
 
   async updateProduct(
     id: string,
     payload: UpdateProductDto,
   ): Promise<ProductWire> {
-    const existing = await this.productRepository.findOneBy({ id });
+    const existing = await this.getProductEntity(id);
 
     if (!existing) {
       throw ApiException.notFound("Product was not found.");
@@ -286,7 +328,9 @@ export class ProductsService {
       condition: payload.condition ?? existing.condition,
     });
 
-    return this.toWire(product);
+    await this.saveVariants(product.id, payload.variants, product);
+
+    return this.toWire(await this.getProductEntity(product.id));
   }
 
   async deleteProduct(id: string): Promise<void> {
@@ -390,6 +434,93 @@ export class ProductsService {
     });
   }
 
+  private async getProductEntity(id: string): Promise<ProductEntity> {
+    const product = await this.productRepository.findOne({
+      where: { id },
+      relations: { variants: true },
+    });
+    if (!product) {
+      throw ApiException.notFound("Product was not found.");
+    }
+    return product;
+  }
+
+  private async saveVariants(
+    productId: string,
+    variants: CreateProductDto["variants"] | UpdateProductDto["variants"],
+    product: ProductEntity,
+  ): Promise<void> {
+    if (!variants) {
+      return;
+    }
+
+    const colorKeys = new Set<string>();
+    const skus = new Set<string>();
+    for (const variant of variants) {
+      const colorKey = variant.colorKey.trim().toLowerCase();
+      const sku = variant.sku.trim();
+      if (colorKeys.has(colorKey) || skus.has(sku)) {
+        throw ApiException.validation("Variant colors and SKUs must be unique.", "variants");
+      }
+      colorKeys.add(colorKey);
+      skus.add(sku);
+      this.assertValidImages(variant.images, variant.primaryImage);
+    }
+
+    const existing = await this.variantRepository.find({ where: { productId } });
+    const byColor = new Map(existing.map((variant) => [variant.colorKey, variant]));
+    const savedIds = new Set<string>();
+
+    for (const input of variants) {
+      const colorKey = input.colorKey.trim().toLowerCase();
+      const current = byColor.get(colorKey);
+      const entity = this.variantRepository.create({
+        ...(current ?? {}),
+        id: current?.id ?? createId("variant"),
+        productId,
+        colorKey,
+        colorName: input.colorName.trim(),
+        sku: input.sku.trim(),
+        barcode: this.normalizeNullableText(input.barcode),
+        price: input.price,
+        costPrice: input.costPrice,
+        stockQty: input.stockQty,
+        reservedQty: current?.reservedQty ?? 0,
+        minStockQty: input.minStockQty ?? null,
+        status: input.status,
+        images: this.normalizeImageList(input.images),
+        primaryImage: this.resolvePrimaryImage(input.primaryImage, this.normalizeImageList(input.images)),
+      });
+      await this.variantRepository.save(entity);
+      savedIds.add(entity.id);
+    }
+
+    const staleIds = existing
+      .filter((variant) => !savedIds.has(variant.id))
+      .map((variant) => variant.id);
+    if (staleIds.length > 0) {
+      await this.variantRepository.delete(staleIds);
+    }
+
+    if (variants.length > 0) {
+      const first = await this.variantRepository.findOneBy({ id: [...savedIds][0] });
+      if (first) {
+        await this.productRepository.save({
+          ...product,
+          sku: first.sku,
+          barcode: first.barcode,
+          price: first.price,
+          costPrice: first.costPrice,
+          stockQty: variants.reduce((sum, item) => sum + item.stockQty, 0),
+          reservedQty: existing.reduce((sum, item) => sum + item.reservedQty, 0),
+          minStockQty: first.minStockQty,
+          images: first.images,
+          primaryImage: first.primaryImage,
+        });
+      }
+    }
+  }
+
   private async assertUniqueSku(
     sku: string,
     productId?: string,
@@ -486,6 +617,13 @@ export class ProductsService {
   }
 
   private toWire(product: ProductEntity): ProductWire {
+    const variants = (product.variants ?? []).map((variant) => this.variantToWire(variant));
+    const stockQty = variants.length
+      ? variants.reduce((sum, variant) => sum + variant.stockQty, 0)
+      : product.stockQty;
+    const reservedQty = variants.length
+      ? variants.reduce((sum, variant) => sum + variant.reservedQty, 0)
+      : product.reservedQty;
     return {
       id: product.id,
       name: product.name,
@@ -496,9 +634,9 @@ export class ProductsService {
       brand: product.brand,
       price: product.price,
       costPrice: product.costPrice,
-      stockQty: product.stockQty,
-      reservedQty: product.reservedQty,
-      availableQty: product.stockQty - product.reservedQty,
+      stockQty,
+      reservedQty,
+      availableQty: stockQty - reservedQty,
       minStockQty: product.minStockQty ?? undefined,
       status: product.status,
       shortDescription: product.shortDescription,
@@ -511,19 +649,30 @@ export class ProductsService {
       condition: product.condition,
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,
+      variants,
     };
   }
 
   private toPublicWire(product: ProductWithRelations): PublicProductWire {
+    const hasVariants = (product.variants ?? []).length > 0;
+    const variants = (product.variants ?? [])
+      .filter((variant) => variant.status === ProductStatus.Active)
+      .map((variant) => this.variantToWire(variant));
+    const stockQty = hasVariants
+      ? variants.reduce((sum, variant) => sum + variant.stockQty, 0)
+      : product.stockQty;
+    const reservedQty = hasVariants
+      ? variants.reduce((sum, variant) => sum + variant.reservedQty, 0)
+      : product.reservedQty;
     return {
       id: product.id,
       name: product.name,
       slug: product.slug ?? undefined,
       sku: product.sku,
       price: product.price,
-      stockQty: product.stockQty,
-      reservedQty: product.reservedQty,
-      availableQty: product.stockQty - product.reservedQty,
+      stockQty,
+      reservedQty,
+      availableQty: stockQty - reservedQty,
       shortDescription: product.shortDescription,
       description: product.description,
       specs: product.specs,
@@ -539,6 +688,28 @@ export class ProductsService {
         image: this.normalizeImagePath(product.category.image),
       },
       brand: product.brand,
+      variants,
+    };
+  }
+
+  private variantToWire(variant: ProductVariantEntity): ProductVariantWire {
+    return {
+      id: variant.id,
+      colorKey: variant.colorKey,
+      colorName: variant.colorName,
+      sku: variant.sku,
+      barcode: variant.barcode,
+      price: variant.price,
+      costPrice: variant.costPrice,
+      stockQty: variant.stockQty,
+      reservedQty: variant.reservedQty,
+      availableQty: variant.stockQty - variant.reservedQty,
+      minStockQty: variant.minStockQty ?? undefined,
+      status: variant.status,
+      images: this.normalizeImageList(variant.images),
+      primaryImage: variant.primaryImage
+        ? this.normalizeImagePath(variant.primaryImage)
+        : null,
     };
   }
 }
