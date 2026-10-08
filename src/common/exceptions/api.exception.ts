@@ -9,6 +9,8 @@ type ApiErrorBody = {
       | "forbidden"
       | "unauthorized"
       | "invalid_transition"
+      | "service_unavailable"
+      | "rate_limited"
       | "internal_error";
     message: string;
     field?: string;
@@ -61,5 +63,17 @@ export class ApiException extends HttpException {
 
   static invalidTransition(message: string): ApiException {
     return new ApiException(HttpStatus.CONFLICT, "invalid_transition", message);
+  }
+
+  static serviceUnavailable(message: string): ApiException {
+    return new ApiException(
+      HttpStatus.SERVICE_UNAVAILABLE,
+      "service_unavailable",
+      message,
+    );
+  }
+
+  static rateLimited(message: string): ApiException {
+    return new ApiException(HttpStatus.TOO_MANY_REQUESTS, "rate_limited", message);
   }
 }

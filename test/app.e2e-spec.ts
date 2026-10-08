@@ -1256,6 +1256,7 @@ describe("Music Shop initial phase (e2e)", () => {
 
     let orderId = "";
     let orderNumber = "";
+    let trackingToken = "";
 
     await agent
       .post("/api/v1/client/orders")
@@ -1264,6 +1265,7 @@ describe("Music Shop initial phase (e2e)", () => {
       .expect((response) => {
         orderId = response.body.order.id;
         orderNumber = response.body.order.orderNumber;
+        trackingToken = response.body.order.trackingToken;
         expect(response.body.order.id).toMatch(/^order-/);
         expect(response.body.order.orderNumber).toMatch(/^ORD-\d+$/);
         expect(response.body.order.customerId).toBe("customer-001");
@@ -1620,7 +1622,7 @@ describe("Music Shop initial phase (e2e)", () => {
     await request(app.getHttpServer())
       .get(`/api/v1/public/orders/${orderNumber}`)
       .query({
-        phone: "+998907771122",
+        token: trackingToken,
       })
       .expect(200)
       .expect((response) => {

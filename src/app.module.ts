@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { APP_GUARD } from "@nestjs/core";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { TypeOrmModule } from "@nestjs/typeorm";
 
@@ -18,6 +19,7 @@ import { OrdersModule } from "./orders/orders.module";
 import { ProductsModule } from "./products/products.module";
 import { RepairsModule } from "./repairs/repairs.module";
 import { SettingsModule } from "./settings/settings.module";
+import { RequestRateLimitGuard } from "./common/guards/request-rate-limit.guard";
 
 @Module({
   imports: [
@@ -51,6 +53,12 @@ import { SettingsModule } from "./settings/settings.module";
     RepairsModule,
     ClientModule,
   ],
-  providers: [MockDataBootstrapService],
+  providers: [
+    MockDataBootstrapService,
+    {
+      provide: APP_GUARD,
+      useClass: RequestRateLimitGuard,
+    },
+  ],
 })
 export class AppModule {}

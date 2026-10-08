@@ -3,7 +3,7 @@ import { AppModule } from "./app.module";
 import { configureApp } from "./app.setup";
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { rawBody: true });
   configureApp(app);
   app.enableShutdownHooks();
 

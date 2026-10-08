@@ -1,11 +1,11 @@
 import { Injectable } from "@nestjs/common";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { InjectRepository } from "@nestjs/typeorm";
 import {
   Brackets,
   DataSource,
   EntityManager,
   In,
-  Like,
   Repository,
 } from "typeorm";
 import { ActorType } from "../common/enums/actor-type.enum";
@@ -19,7 +19,6 @@ import { PaymentStatus } from "../common/enums/payment-status.enum";
 import { ApiException } from "../common/exceptions/api.exception";
 import { ORDER_STATUS_TRANSITIONS } from "../common/constants/workflow.constants";
 import { createId } from "../common/utils/id.util";
-import { getNextSequentialPrefixedId } from "../common/utils/sequential-id.util";
 import {
   ActivityEntity,
   CustomerEntity,
@@ -113,6 +112,7 @@ type CreateCheckoutPayload = {
 type OrderWire = {
   id: string;
   orderNumber: string;
+  trackingToken?: string;
   customerId: string;
   stage: OrderStage;
   availableTransitions: string[];
@@ -287,16 +287,10 @@ export class OrdersService {
 
   async getOrderByOrderNumber(
     orderNumber: string,
-    verifier?: { phone?: string; email?: string },
+    trackingToken?: string,
   ): Promise<OrderWire> {
-    const phone = verifier?.phone?.trim();
-    const email = verifier?.email?.trim().toLowerCase();
-
-    if (!phone && !email) {
-      throw ApiException.validation(
-        "Phone or email is required to verify the order.",
-        "phone",
-      );
+    if (!trackingToken?.trim()) {
+      throw ApiException.unauthorized("Order tracking token is required.");
     }
 
     const order = await this.loadOrderByOrderNumber(orderNumber);
@@ -305,11 +299,7 @@ export class OrdersService {
       throw ApiException.notFound("Order was not found.");
     }
 
-    if (phone && order.phoneSnapshot !== phone) {
-      throw ApiException.forbidden("Order verification failed.");
-    }
-
-    if (email && order.emailSnapshot !== email) {
+    if (!this.isValidTrackingToken(order.id, trackingToken.trim())) {
       throw ApiException.forbidden("Order verification failed.");
     }
 
@@ -354,7 +344,11 @@ export class OrdersService {
   }
 
   async createPublicOrder(payload: CreateCheckoutPayload): Promise<OrderWire> {
-    return this.createCheckoutOrder(payload);
+    const order = await this.createCheckoutOrder(payload);
+    return {
+      ...order,
+      trackingToken: this.createTrackingToken(order.id),
+    };
   }
 
   async updateOrderStatus(
@@ -447,6 +441,13 @@ export class OrdersService {
         throw ApiException.notFound("Order was not found.");
       }
 
+      const existingPayment = await manager.getRepository(PaymentEntity).findOne({
+        where: { orderId, transactionId: payload.transactionId },
+      });
+      if (existingPayment) {
+        return this.toWire(order);
+      }
+
       await this.applyPaymentStatusUpdate(
         manager,
         order,
@@ -457,7 +458,7 @@ export class OrdersService {
         },
         {
           provider: "stub-gateway",
-          transactionId: payload.transactionId ?? `stub-${Date.now()}`,
+          transactionId: payload.transactionId,
           providerPayload: {
             source: "stub-payment-webhook",
             paymentStatus: payload.paymentStatus,
@@ -694,6 +695,29 @@ export class OrdersService {
 
       return this.toWire(order);
     });
+  }
+
+  private createTrackingToken(orderId: string): string {
+    const secret =
+      process.env.PUBLIC_ORDER_TRACKING_SECRET?.trim() ||
+      (process.env.NODE_ENV === "production" ? "" : "local-order-tracking-secret");
+    if (!secret) {
+      throw ApiException.serviceUnavailable(
+        "Public order tracking is not configured.",
+      );
+    }
+
+    return createHmac("sha256", secret)
+      .update(`order-tracking:${orderId}`)
+      .digest("hex");
+  }
+
+  private isValidTrackingToken(orderId: string, token: string): boolean {
+    const expected = Buffer.from(this.createTrackingToken(orderId), "hex");
+    const actual = Buffer.from(token, "hex");
+    return (
+      expected.length === actual.length && timingSafeEqual(expected, actual)
+    );
   }
 
   private async applyOrderStatusSideEffects(
@@ -1417,30 +1441,14 @@ export class OrdersService {
   }
 
   private async allocateOrderNumber(manager: EntityManager): Promise<string> {
-    const orderRepository = manager.getRepository(OrderEntity);
-
-    for (let attempt = 0; attempt < 5; attempt += 1) {
-      const existingOrderNumbers = await orderRepository.find({
-        where: { orderNumber: Like("ORD-%") },
-        select: { orderNumber: true },
-      });
-
-      const orderNumber = getNextSequentialPrefixedId(
-        existingOrderNumbers.map((item) => item.orderNumber),
-        "ORD",
-        1001,
-      );
-
-      const existing = await orderRepository.findOneBy({ orderNumber });
-
-      if (!existing) {
-        return orderNumber;
-      }
-    }
-
-    throw ApiException.conflict(
-      "Could not allocate a new order number. Please retry.",
+    const result = await manager.query<{ nextval: string }[]>(
+      `SELECT nextval('"Order_orderNumber_seq"') AS nextval`,
     );
+    const nextValue = Number(result[0]?.nextval);
+    if (!Number.isInteger(nextValue)) {
+      throw ApiException.conflict("Could not allocate a new order number.");
+    }
+    return `ORD-${nextValue}`;
   }
 
   private async recordActivity(
