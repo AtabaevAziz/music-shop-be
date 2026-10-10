@@ -10,6 +10,8 @@ import {
 } from "typeorm";
 import { RepairStatus } from "../../common/enums/repair-status.enum";
 import { CustomerEntity } from "./customer.entity";
+import { ProductEntity } from "./product.entity";
+import { ProductVariantEntity } from "./product-variant.entity";
 
 @Entity({ name: "RepairRequest" })
 @Index("RepairRequest_customerId_idx", ["customerId"])
@@ -20,6 +22,12 @@ export class RepairRequestEntity {
 
   @Column({ type: "text", name: "customerId" })
   customerId!: string;
+
+  @Column({ type: "text", name: "productId", nullable: true })
+  productId!: string | null;
+
+  @Column({ type: "text", name: "variantId", nullable: true })
+  variantId!: string | null;
 
   @Column({ type: "text", name: "instrumentName" })
   instrumentName!: string;
@@ -66,4 +74,15 @@ export class RepairRequestEntity {
   })
   @JoinColumn({ name: "customerId", referencedColumnName: "id" })
   customer!: CustomerEntity;
+
+  @ManyToOne(() => ProductEntity, { onDelete: "SET NULL", nullable: true })
+  @JoinColumn({ name: "productId", referencedColumnName: "id" })
+  product!: ProductEntity | null;
+
+  @ManyToOne(() => ProductVariantEntity, {
+    onDelete: "SET NULL",
+    nullable: true,
+  })
+  @JoinColumn({ name: "variantId", referencedColumnName: "id" })
+  variant!: ProductVariantEntity | null;
 }

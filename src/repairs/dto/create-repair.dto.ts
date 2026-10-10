@@ -13,6 +13,14 @@ export class CreateRepairDto {
   @IsString()
   customerId!: string;
 
+  @IsOptional()
+  @IsString()
+  productId?: string;
+
+  @IsOptional()
+  @IsString()
+  variantId?: string;
+
   @IsString()
   @MinLength(2)
   instrumentName!: string;

@@ -1,4 +1,5 @@
 import { OrderStatus } from "../enums/order-status.enum";
+import { RepairStatus } from "../enums/repair-status.enum";
 
 export const ORDER_STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   [OrderStatus.New]: [OrderStatus.Confirmed, OrderStatus.Cancelled],
@@ -38,4 +39,13 @@ export const ORDER_STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   [OrderStatus.StockProblem]: [OrderStatus.Confirmed, OrderStatus.Cancelled],
   [OrderStatus.Cancelled]: [],
   [OrderStatus.Returned]: [],
+};
+
+export const REPAIR_STATUS_TRANSITIONS: Record<RepairStatus, RepairStatus[]> = {
+  [RepairStatus.New]: [RepairStatus.Diagnostics, RepairStatus.Cancelled],
+  [RepairStatus.Diagnostics]: [RepairStatus.InProgress, RepairStatus.Cancelled],
+  [RepairStatus.InProgress]: [RepairStatus.Ready, RepairStatus.Cancelled],
+  [RepairStatus.Ready]: [RepairStatus.Completed, RepairStatus.Cancelled],
+  [RepairStatus.Completed]: [],
+  [RepairStatus.Cancelled]: [],
 };

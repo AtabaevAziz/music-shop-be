@@ -70,13 +70,20 @@ export class InventoryService {
             .getOne()
         : null;
       if (payload.variantId && (!variant || variant.productId !== product.id)) {
-        throw ApiException.validation("Variant must belong to the selected product.", "variantId");
+        throw ApiException.validation(
+          "Variant must belong to the selected product.",
+          "variantId",
+        );
       }
       if (variant && variant.stockQty + payload.delta < 0) {
-        throw ApiException.conflict("Inventory adjustment would produce negative variant stock.");
+        throw ApiException.conflict(
+          "Inventory adjustment would produce negative variant stock.",
+        );
       }
       if (variant && variant.reservedQty > variant.stockQty + payload.delta) {
-        throw ApiException.conflict("Inventory adjustment cannot go below reserved stock.");
+        throw ApiException.conflict(
+          "Inventory adjustment cannot go below reserved stock.",
+        );
       }
 
       const nextStockQty = product.stockQty + payload.delta;
@@ -87,23 +94,65 @@ export class InventoryService {
         );
       }
 
-      const updatedProduct = await productRepository.save({
-        ...product,
-        stockQty: variant ? product.stockQty + payload.delta : nextStockQty,
-      });
-
       if (variant) {
         await variantRepository.save({
           ...variant,
           stockQty: variant.stockQty + payload.delta,
         });
+
+        const variants = await variantRepository.find({
+          where: { productId: product.id },
+        });
+        const updatedProduct = await productRepository.save({
+          ...product,
+          stockQty: variants.reduce((sum, item) => sum + item.stockQty, 0),
+          reservedQty: variants.reduce(
+            (sum, item) => sum + item.reservedQty,
+            0,
+          ),
+        });
+
+        const movement = await movementRepository.save(
+          movementRepository.create({
+            id: createId("movement"),
+            productId: product.id,
+            variantId: variant.id,
+            delta: payload.delta,
+            reason: payload.reason.trim(),
+          }),
+        );
+
+        await activityRepository.save(
+          activityRepository.create({
+            id: createId("activity"),
+            title: "activity.inventoryAdjusted",
+            messageKey: "activity.inventoryAdjusted",
+            messageParams: {
+              productId: product.id,
+              delta: payload.delta,
+            },
+          }),
+        );
+
+        return {
+          product: {
+            id: updatedProduct.id,
+            stockQty: updatedProduct.stockQty,
+          },
+          movement: this.toWire(movement),
+        };
       }
+
+      const updatedProduct = await productRepository.save({
+        ...product,
+        stockQty: nextStockQty,
+      });
 
       const movement = await movementRepository.save(
         movementRepository.create({
           id: createId("movement"),
           productId: product.id,
-          variantId: variant?.id ?? null,
+          variantId: null,
           delta: payload.delta,
           reason: payload.reason.trim(),
         }),

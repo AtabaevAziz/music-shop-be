@@ -21,6 +21,8 @@ export class PublicRepairsController {
     const repairRequest = await this.repairsService.createRepairForCustomer(
       customer.id,
       {
+        productId: payload.productId,
+        variantId: payload.variantId,
         instrumentName: payload.instrumentType,
         brand: payload.instrumentModel,
         issue: payload.issueDescription,

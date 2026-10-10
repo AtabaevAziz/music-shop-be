@@ -7,6 +7,14 @@ import {
 } from "class-validator";
 
 export class CreatePublicRepairDto {
+  @IsOptional()
+  @IsString()
+  productId?: string;
+
+  @IsOptional()
+  @IsString()
+  variantId?: string;
+
   @IsString()
   @MinLength(2)
   customerName!: string;

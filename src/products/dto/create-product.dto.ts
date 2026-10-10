@@ -35,6 +35,9 @@ export class CreateProductDto {
   @MinLength(2)
   brand!: string;
 
+  @IsOptional()
+  repairable?: boolean;
+
   @Type(() => Number)
   @IsInt()
   @Min(1)

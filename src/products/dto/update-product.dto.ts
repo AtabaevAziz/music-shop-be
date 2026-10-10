@@ -40,6 +40,9 @@ export class UpdateProductDto {
   brand?: string;
 
   @IsOptional()
+  repairable?: boolean;
+
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)

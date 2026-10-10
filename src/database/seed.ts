@@ -45,6 +45,163 @@ import AppDataSource from "./typeorm.datasource";
 
 type SeedClient = DataSource | EntityManager;
 
+type SeedVariant = {
+  colorKey: string;
+  colorName: string;
+  sku: string;
+  price: number;
+  costPrice: number;
+  stockQty: number;
+  reservedQty?: number;
+  minStockQty?: number;
+  images: string[];
+  primaryImage?: string;
+};
+
+const repairableProductIds = new Set([
+  "product-player-strat",
+  "product-yamaha-p125",
+  "product-roland-spd-sx",
+  "product-stentor-student-ii",
+  "product-yamaha-f310",
+  "product-casio-ct-s1",
+  "product-yamaha-yas-280",
+]);
+
+const coloredProductVariants: Record<string, SeedVariant[]> = {
+  "product-player-strat": [
+    {
+      colorKey: "3-color-sunburst",
+      colorName: "3-Color Sunburst",
+      sku: "FEN-STRAT-001",
+      price: 9_800_000,
+      costPrice: 7_600_000,
+      stockQty: 1,
+      reservedQty: 1,
+      minStockQty: 1,
+      images: ["/assets/fender-player-stratocaster.jpg"],
+      primaryImage: "/assets/fender-player-stratocaster.jpg",
+    },
+    {
+      colorKey: "black",
+      colorName: "Black",
+      sku: "FEN-STRAT-001-BK",
+      price: 9_800_000,
+      costPrice: 7_600_000,
+      stockQty: 1,
+      reservedQty: 1,
+      minStockQty: 1,
+      images: ["/assets/fender-player-stratocaster.jpg"],
+      primaryImage: "/assets/fender-player-stratocaster.jpg",
+    },
+    {
+      colorKey: "olympic-white",
+      colorName: "Olympic White",
+      sku: "FEN-STRAT-001-WH",
+      price: 9_800_000,
+      costPrice: 7_600_000,
+      stockQty: 1,
+      minStockQty: 1,
+      images: ["/assets/fender-player-stratocaster.jpg"],
+      primaryImage: "/assets/fender-player-stratocaster.jpg",
+    },
+  ],
+  "product-yamaha-f310": [
+    {
+      colorKey: "natural",
+      colorName: "Natural",
+      sku: "YAM-F310-001",
+      price: 2_450_000,
+      costPrice: 1_780_000,
+      stockQty: 2,
+      minStockQty: 1,
+      images: ["/assets/acoustic-guitar.png"],
+      primaryImage: "/assets/acoustic-guitar.png",
+    },
+    {
+      colorKey: "tobacco-brown-sunburst",
+      colorName: "Tobacco Brown Sunburst",
+      sku: "YAM-F310-001-TBS",
+      price: 2_550_000,
+      costPrice: 1_850_000,
+      stockQty: 2,
+      minStockQty: 1,
+      images: ["/assets/acoustic-guitar.png"],
+      primaryImage: "/assets/acoustic-guitar.png",
+    },
+    {
+      colorKey: "black",
+      colorName: "Black",
+      sku: "YAM-F310-001-BK",
+      price: 2_450_000,
+      costPrice: 1_780_000,
+      stockQty: 1,
+      minStockQty: 1,
+      images: ["/assets/acoustic-guitar.png"],
+      primaryImage: "/assets/acoustic-guitar.png",
+    },
+  ],
+  "product-casio-ct-s1": [
+    {
+      colorKey: "white",
+      colorName: "White",
+      sku: "CAS-CTS1-001",
+      price: 3_600_000,
+      costPrice: 2_700_000,
+      stockQty: 3,
+      minStockQty: 1,
+      images: ["/assets/grand-piano.png"],
+      primaryImage: "/assets/grand-piano.png",
+    },
+    {
+      colorKey: "black",
+      colorName: "Black",
+      sku: "CAS-CTS1-001-BK",
+      price: 3_600_000,
+      costPrice: 2_700_000,
+      stockQty: 2,
+      minStockQty: 1,
+      images: ["/assets/grand-piano.png"],
+      primaryImage: "/assets/grand-piano.png",
+    },
+    {
+      colorKey: "red",
+      colorName: "Red",
+      sku: "CAS-CTS1-001-RD",
+      price: 3_750_000,
+      costPrice: 2_800_000,
+      stockQty: 2,
+      minStockQty: 1,
+      images: ["/assets/grand-piano.png"],
+      primaryImage: "/assets/grand-piano.png",
+    },
+  ],
+};
+
+function getSeedVariants(
+  product: (typeof productSeeds)[number],
+): SeedVariant[] {
+  const customVariants = coloredProductVariants[product.id];
+  if (customVariants) {
+    return customVariants;
+  }
+
+  return [
+    {
+      colorKey: "default",
+      colorName: "Default",
+      sku: product.sku,
+      price: product.price,
+      costPrice: product.costPrice,
+      stockQty: product.stockQty,
+      reservedQty: "reservedQty" in product ? product.reservedQty : 0,
+      minStockQty: product.minStockQty,
+      images: [...product.images],
+      primaryImage: product.primaryImage,
+    },
+  ];
+}
+
 export function normalizeSeedRequiredString(value: string): string {
   return value.trim();
 }
@@ -154,6 +311,7 @@ async function upsertSeedData(client: SeedClient): Promise<void> {
   }
 
   for (const product of productSeeds) {
+    const variants = getSeedVariants(product);
     await getRepository(client, ProductEntity).upsert(
       {
         id: product.id,
@@ -162,27 +320,36 @@ async function upsertSeedData(client: SeedClient): Promise<void> {
       ["id"],
     );
 
-    await getRepository(client, ProductVariantEntity).upsert(
-      {
-        id: `variant-${product.id}`,
-        productId: product.id,
-        colorKey: "default",
-        colorName: "Default",
-        sku: product.sku,
-        barcode: normalizeSeedOptionalString(product.barcode) ?? null,
-        price: product.price,
-        costPrice: product.costPrice,
-        stockQty: product.stockQty,
-        reservedQty: "reservedQty" in product ? product.reservedQty : 0,
-        minStockQty: product.minStockQty ?? null,
-        status: product.status,
-        images: [...product.images],
-        primaryImage: normalizeSeedOptionalString(product.primaryImage) ?? null,
-        createdAt: product.createdAt,
-        updatedAt: product.updatedAt,
-      },
-      ["id"],
-    );
+    for (const [index, variant] of variants.entries()) {
+      await getRepository(client, ProductVariantEntity).upsert(
+        {
+          id:
+            index === 0
+              ? `variant-${product.id}`
+              : `variant-${product.id}-${variant.colorKey}`,
+          productId: product.id,
+          colorKey: variant.colorKey,
+          colorName: variant.colorName,
+          sku: variant.sku,
+          barcode:
+            index === 0
+              ? (normalizeSeedOptionalString(product.barcode) ?? null)
+              : null,
+          price: variant.price,
+          costPrice: variant.costPrice,
+          stockQty: variant.stockQty,
+          reservedQty: variant.reservedQty ?? 0,
+          minStockQty: variant.minStockQty ?? null,
+          status: product.status,
+          images: [...variant.images],
+          primaryImage:
+            normalizeSeedOptionalString(variant.primaryImage) ?? null,
+          createdAt: product.createdAt,
+          updatedAt: product.updatedAt,
+        },
+        ["id"],
+      );
+    }
   }
 
   for (const movement of inventoryMovementSeeds) {
@@ -325,6 +492,7 @@ function buildProductPayload(product: (typeof productSeeds)[number]) {
     barcode: normalizeSeedOptionalString(product.barcode) ?? null,
     categoryId: product.categoryId,
     brand: normalizeSeedRequiredString(product.brand),
+    repairable: repairableProductIds.has(product.id),
     price: product.price,
     costPrice: product.costPrice,
     stockQty: product.stockQty,

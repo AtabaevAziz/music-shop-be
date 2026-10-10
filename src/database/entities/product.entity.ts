@@ -45,6 +45,9 @@ export class ProductEntity {
   @Column({ type: "text", name: "brand" })
   brand!: string;
 
+  @Column({ type: "boolean", name: "repairable", default: false })
+  repairable!: boolean;
+
   @Column({ type: "integer", name: "price" })
   price!: number;
 

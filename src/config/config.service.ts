@@ -11,7 +11,10 @@ import { PaymentStatus } from "../common/enums/payment-status.enum";
 import { ProductStatus } from "../common/enums/product-status.enum";
 import { RepairStatus } from "../common/enums/repair-status.enum";
 import { Role } from "../common/enums/role.enum";
-import { ORDER_STATUS_TRANSITIONS } from "../common/constants/workflow.constants";
+import {
+  ORDER_STATUS_TRANSITIONS,
+  REPAIR_STATUS_TRANSITIONS,
+} from "../common/constants/workflow.constants";
 import { BusinessSettingsEntity } from "../database/entities";
 import { Repository } from "typeorm";
 
@@ -174,6 +177,10 @@ export class RuntimeConfigService {
         orders: {
           statuses: Object.values(OrderStatus),
           transitions: ORDER_STATUS_TRANSITIONS,
+        },
+        repairs: {
+          statuses: Object.values(RepairStatus),
+          transitions: REPAIR_STATUS_TRANSITIONS,
         },
       },
     };

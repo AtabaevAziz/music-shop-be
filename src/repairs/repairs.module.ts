@@ -5,6 +5,8 @@ import { CustomersModule } from "../customers/customers.module";
 import {
   ActivityEntity,
   CustomerEntity,
+  ProductEntity,
+  ProductVariantEntity,
   RepairRequestEntity,
 } from "../database/entities";
 import { PublicRepairsController } from "./public-repairs.controller";
@@ -19,6 +21,8 @@ import { RepairsService } from "./repairs.service";
       RepairRequestEntity,
       CustomerEntity,
       ActivityEntity,
+      ProductEntity,
+      ProductVariantEntity,
     ]),
   ],
   controllers: [RepairsController, PublicRepairsController],

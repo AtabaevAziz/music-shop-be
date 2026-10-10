@@ -25,6 +25,7 @@ type ProductWire = {
   barcode: string | null;
   categoryId: string;
   brand: string;
+  repairable: boolean;
   price: number;
   costPrice: number;
   stockQty: number;
@@ -82,6 +83,7 @@ type PublicProductWire = {
   images: string[];
   primaryImage: string | null;
   condition: Condition;
+  repairable: boolean;
   category: {
     id: string;
     name: string;
@@ -195,7 +197,7 @@ export class ProductsService {
   }
 
   async getPublicProduct(id: string): Promise<PublicProductWire> {
-      const product = await this.productRepository.findOne({
+    const product = await this.productRepository.findOne({
       where: {
         id,
         status: ProductStatus.Active,
@@ -247,6 +249,7 @@ export class ProductsService {
         barcode: this.normalizeNullableText(payload.barcode),
         categoryId: payload.categoryId,
         brand: payload.brand.trim(),
+        repairable: payload.repairable ?? false,
         price: payload.price,
         costPrice: payload.costPrice,
         stockQty: payload.stockQty,
@@ -311,6 +314,7 @@ export class ProductsService {
           : this.normalizeNullableText(payload.barcode),
       categoryId: payload.categoryId ?? existing.categoryId,
       brand: payload.brand?.trim() ?? existing.brand,
+      repairable: payload.repairable ?? existing.repairable,
       price: payload.price ?? existing.price,
       costPrice: payload.costPrice ?? existing.costPrice,
       stockQty: payload.stockQty ?? existing.stockQty,
@@ -460,15 +464,22 @@ export class ProductsService {
       const colorKey = variant.colorKey.trim().toLowerCase();
       const sku = variant.sku.trim();
       if (colorKeys.has(colorKey) || skus.has(sku)) {
-        throw ApiException.validation("Variant colors and SKUs must be unique.", "variants");
+        throw ApiException.validation(
+          "Variant colors and SKUs must be unique.",
+          "variants",
+        );
       }
       colorKeys.add(colorKey);
       skus.add(sku);
       this.assertValidImages(variant.images, variant.primaryImage);
     }
 
-    const existing = await this.variantRepository.find({ where: { productId } });
-    const byColor = new Map(existing.map((variant) => [variant.colorKey, variant]));
+    const existing = await this.variantRepository.find({
+      where: { productId },
+    });
+    const byColor = new Map(
+      existing.map((variant) => [variant.colorKey, variant]),
+    );
     const savedIds = new Set<string>();
 
     for (const input of variants) {
@@ -489,7 +500,10 @@ export class ProductsService {
         minStockQty: input.minStockQty ?? null,
         status: input.status,
         images: this.normalizeImageList(input.images),
-        primaryImage: this.resolvePrimaryImage(input.primaryImage, this.normalizeImageList(input.images)),
+        primaryImage: this.resolvePrimaryImage(
+          input.primaryImage,
+          this.normalizeImageList(input.images),
+        ),
       });
       await this.variantRepository.save(entity);
       savedIds.add(entity.id);
@@ -503,7 +517,10 @@ export class ProductsService {
     }
 
     if (variants.length > 0) {
-      const first = await this.variantRepository.findOneBy({ id: [...savedIds][0] });
+      const savedVariants = await this.variantRepository.find({
+        where: { productId },
+      });
+      const first = savedVariants[0];
       if (first) {
         await this.productRepository.save({
           ...product,
@@ -511,8 +528,11 @@ export class ProductsService {
           barcode: first.barcode,
           price: first.price,
           costPrice: first.costPrice,
-          stockQty: variants.reduce((sum, item) => sum + item.stockQty, 0),
-          reservedQty: existing.reduce((sum, item) => sum + item.reservedQty, 0),
+          stockQty: savedVariants.reduce((sum, item) => sum + item.stockQty, 0),
+          reservedQty: savedVariants.reduce(
+            (sum, item) => sum + item.reservedQty,
+            0,
+          ),
           minStockQty: first.minStockQty,
           images: first.images,
           primaryImage: first.primaryImage,
@@ -617,7 +637,9 @@ export class ProductsService {
   }
 
   private toWire(product: ProductEntity): ProductWire {
-    const variants = (product.variants ?? []).map((variant) => this.variantToWire(variant));
+    const variants = (product.variants ?? []).map((variant) =>
+      this.variantToWire(variant),
+    );
     const stockQty = variants.length
       ? variants.reduce((sum, variant) => sum + variant.stockQty, 0)
       : product.stockQty;
@@ -632,6 +654,7 @@ export class ProductsService {
       barcode: product.barcode,
       categoryId: product.categoryId,
       brand: product.brand,
+      repairable: product.repairable,
       price: product.price,
       costPrice: product.costPrice,
       stockQty,
@@ -681,6 +704,7 @@ export class ProductsService {
         ? this.normalizeImagePath(product.primaryImage)
         : null,
       condition: product.condition,
+      repairable: product.repairable,
       category: {
         id: product.category.id,
         name: product.category.name,

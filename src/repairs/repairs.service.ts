@@ -3,6 +3,8 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Like, Repository } from "typeorm";
 import { ApiException } from "../common/exceptions/api.exception";
 import { RepairStatus } from "../common/enums/repair-status.enum";
+import { ProductStatus } from "../common/enums/product-status.enum";
+import { REPAIR_STATUS_TRANSITIONS } from "../common/constants/workflow.constants";
 import { createId } from "../common/utils/id.util";
 import {
   getNextSequentialPrefixedId,
@@ -12,6 +14,8 @@ import {
   CustomerEntity,
   RepairRequestEntity,
   ActivityEntity,
+  ProductEntity,
+  ProductVariantEntity,
 } from "../database/entities";
 import { CreateRepairDto } from "./dto/create-repair.dto";
 import { UpdateRepairDto } from "./dto/update-repair.dto";
@@ -19,6 +23,10 @@ import { UpdateRepairDto } from "./dto/update-repair.dto";
 type RepairWire = {
   id: string;
   customerId: string;
+  productId?: string;
+  variantId?: string;
+  productName?: string;
+  variantName?: string;
   instrumentName: string;
   brand: string;
   issue: string;
@@ -34,7 +42,7 @@ type RepairWire = {
 
 type RepairCreatePayload = Pick<
   CreateRepairDto,
-  "instrumentName" | "brand" | "issue" | "notes"
+  "instrumentName" | "brand" | "issue" | "notes" | "productId" | "variantId"
 > &
   Partial<
     Pick<
@@ -52,6 +60,10 @@ export class RepairsService {
     private readonly customerRepository: Repository<CustomerEntity>,
     @InjectRepository(ActivityEntity)
     private readonly activityRepository: Repository<ActivityEntity>,
+    @InjectRepository(ProductEntity)
+    private readonly productRepository: Repository<ProductEntity>,
+    @InjectRepository(ProductVariantEntity)
+    private readonly variantRepository: Repository<ProductVariantEntity>,
   ) {}
 
   async listRepairs(
@@ -63,6 +75,7 @@ export class RepairsService {
         ...(filters.customerId ? { customerId: filters.customerId } : {}),
       },
       order: { createdAt: "DESC" },
+      relations: { product: true, variant: true },
       ...(filters.limit ? { take: filters.limit } : {}),
     });
 
@@ -85,9 +98,14 @@ export class RepairsService {
       throw ApiException.notFound("Repair request was not found.");
     }
 
+    this.assertStatusTransition(existing.status, payload.status);
+    const linkedInstrument = await this.resolveLinkedInstrument(payload, false);
+
     const repair = await this.repairRepository.save({
       ...existing,
       customerId: payload.customerId,
+      productId: linkedInstrument.productId,
+      variantId: linkedInstrument.variantId,
       instrumentName: payload.instrumentName.trim(),
       brand: payload.brand.trim(),
       issue: payload.issue.trim(),
@@ -98,7 +116,7 @@ export class RepairsService {
       receivedAt: this.parseReceivedAt(payload.receivedAt) ?? null,
     });
 
-    return this.toWire(repair);
+    return this.toWire(await this.loadRepair(repair.id));
   }
 
   async createRepairForCustomer(
@@ -106,6 +124,7 @@ export class RepairsService {
     payload: RepairCreatePayload,
   ): Promise<RepairWire> {
     await this.assertCustomerExists(customerId);
+    const linkedInstrument = await this.resolveLinkedInstrument(payload, true);
     let repair: RepairRequestEntity | null = null;
 
     for (let attempt = 0; attempt < 5; attempt += 1) {
@@ -124,6 +143,8 @@ export class RepairsService {
           this.repairRepository.create({
             id: repairId,
             customerId,
+            productId: linkedInstrument.productId,
+            variantId: linkedInstrument.variantId,
             instrumentName: payload.instrumentName.trim(),
             brand: payload.brand.trim(),
             issue: payload.issue.trim(),
@@ -162,7 +183,7 @@ export class RepairsService {
       }),
     );
 
-    return this.toWire(repair);
+    return this.toWire(await this.loadRepair(repair.id));
   }
 
   private toWire(repair: RepairRequestEntity): RepairWire {
@@ -170,6 +191,10 @@ export class RepairsService {
     return {
       id: repair.id,
       customerId: repair.customerId,
+      productId: repair.productId ?? undefined,
+      variantId: repair.variantId ?? undefined,
+      productName: repair.product?.name ?? undefined,
+      variantName: repair.variant?.colorName ?? undefined,
       instrumentName: repair.instrumentName,
       brand: repair.brand,
       issue: repair.issue,
@@ -191,6 +216,91 @@ export class RepairsService {
 
     if (!customer) {
       throw ApiException.validation("Customer must exist.", "customerId");
+    }
+  }
+
+  private async loadRepair(id: string): Promise<RepairRequestEntity> {
+    const repair = await this.repairRepository.findOne({
+      where: { id },
+      relations: { product: true, variant: true },
+    });
+
+    if (!repair) {
+      throw ApiException.notFound("Repair request was not found.");
+    }
+
+    return repair;
+  }
+
+  private async resolveLinkedInstrument(
+    payload: RepairCreatePayload,
+    requireActive: boolean,
+  ): Promise<{ productId: string | null; variantId: string | null }> {
+    if (!payload.productId && !payload.variantId) {
+      return { productId: null, variantId: null };
+    }
+
+    if (!payload.productId) {
+      throw ApiException.validation(
+        "Product is required when a variant is selected.",
+        "productId",
+      );
+    }
+
+    const product = await this.productRepository.findOneBy({
+      id: payload.productId,
+    });
+    if (!product) {
+      throw ApiException.validation("Product must exist.", "productId");
+    }
+    if (!product.repairable) {
+      throw ApiException.validation(
+        "This product is not available for repair.",
+        "productId",
+      );
+    }
+    if (requireActive && product.status !== ProductStatus.Active) {
+      throw ApiException.validation(
+        "Only active products can be selected for repair.",
+        "productId",
+      );
+    }
+
+    if (!payload.variantId) {
+      return { productId: product.id, variantId: null };
+    }
+
+    const variant = await this.variantRepository.findOneBy({
+      id: payload.variantId,
+    });
+    if (!variant || variant.productId !== product.id) {
+      throw ApiException.validation(
+        "Variant must belong to the selected product.",
+        "variantId",
+      );
+    }
+    if (requireActive && variant.status !== ProductStatus.Active) {
+      throw ApiException.validation(
+        "Only active variants can be selected for repair.",
+        "variantId",
+      );
+    }
+
+    return { productId: product.id, variantId: variant.id };
+  }
+
+  private assertStatusTransition(
+    currentStatus: RepairStatus,
+    nextStatus: RepairStatus,
+  ): void {
+    if (
+      currentStatus !== nextStatus &&
+      !REPAIR_STATUS_TRANSITIONS[currentStatus].includes(nextStatus)
+    ) {
+      throw ApiException.conflict(
+        `Repair status cannot change from ${currentStatus} to ${nextStatus}.`,
+        "status",
+      );
     }
   }
 
