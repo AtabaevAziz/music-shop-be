@@ -1,12 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { InjectRepository } from "@nestjs/typeorm";
-import {
-  Brackets,
-  DataSource,
-  EntityManager,
-  Repository,
-} from "typeorm";
+import { Brackets, DataSource, EntityManager, Repository } from "typeorm";
 import { ActorType } from "../common/enums/actor-type.enum";
 import { DeliveryMethod } from "../common/enums/delivery-method.enum";
 import { DeliveryStatus } from "../common/enums/delivery-status.enum";
@@ -16,7 +11,10 @@ import { PackagingStatus } from "../common/enums/packaging-status.enum";
 import { PaymentMethod } from "../common/enums/payment-method.enum";
 import { PaymentStatus } from "../common/enums/payment-status.enum";
 import { ApiException } from "../common/exceptions/api.exception";
-import { ORDER_STATUS_TRANSITIONS } from "../common/constants/workflow.constants";
+import {
+  ORDER_STATUS_TRANSITIONS,
+  PAYMENT_STATUS_TRANSITIONS,
+} from "../common/constants/workflow.constants";
 import { createId } from "../common/utils/id.util";
 import {
   ActivityEntity,
@@ -440,9 +438,11 @@ export class OrdersService {
         throw ApiException.notFound("Order was not found.");
       }
 
-      const existingPayment = await manager.getRepository(PaymentEntity).findOne({
-        where: { orderId, transactionId: payload.transactionId },
-      });
+      const existingPayment = await manager
+        .getRepository(PaymentEntity)
+        .findOne({
+          where: { orderId, transactionId: payload.transactionId },
+        });
       if (existingPayment) {
         return this.toWire(order);
       }
@@ -486,15 +486,20 @@ export class OrdersService {
         manager,
         payload.items,
       );
-      const variants = await this.loadVariantsForCheckout(manager, payload.items);
+      const variants = await this.loadVariantsForCheckout(
+        manager,
+        payload.items,
+      );
       const stockDemand = this.getStockDemand(payload.items);
 
       for (const [productId, requestedQty] of stockDemand.entries()) {
         const product = products.get(productId);
         const itemVariants = payload.items
           .filter((item) => item.productId === productId)
-          .map((item) => item.variantId ? variants.get(item.variantId) : null)
-          .filter((variant): variant is ProductVariantEntity => Boolean(variant));
+          .map((item) => (item.variantId ? variants.get(item.variantId) : null))
+          .filter((variant): variant is ProductVariantEntity =>
+            Boolean(variant),
+          );
         const availableQty = itemVariants.length
           ? itemVariants.reduce(
               (sum, variant) => sum + variant.stockQty - variant.reservedQty,
@@ -511,8 +516,12 @@ export class OrdersService {
 
       const subtotal = payload.items.reduce((sum, item) => {
         const product = products.get(item.productId)!;
-        const variant = item.variantId ? variants.get(item.variantId) : undefined;
-        return sum + (variant?.price ?? product.price) * this.getItemQuantity(item);
+        const variant = item.variantId
+          ? variants.get(item.variantId)
+          : undefined;
+        return (
+          sum + (variant?.price ?? product.price) * this.getItemQuantity(item)
+        );
       }, 0);
       const deliveryCost = this.resolveDeliveryCost(payload.deliveryMethod);
       const total = subtotal + deliveryCost;
@@ -560,7 +569,9 @@ export class OrdersService {
       await orderItemRepository.save(
         payload.items.map((item) => {
           const product = products.get(item.productId)!;
-          const variant = item.variantId ? variants.get(item.variantId) : undefined;
+          const variant = item.variantId
+            ? variants.get(item.variantId)
+            : undefined;
           const quantity = this.getItemQuantity(item);
 
           return orderItemRepository.create({
@@ -569,7 +580,9 @@ export class OrdersService {
             productId: product.id,
             variantId: variant?.id ?? null,
             variantName: variant?.colorName ?? null,
-            productName: variant ? `${product.name} · ${variant.colorName}` : product.name,
+            productName: variant
+              ? `${product.name} · ${variant.colorName}`
+              : product.name,
             quantity,
             unitPrice: variant?.price ?? product.price,
             totalPrice: (variant?.price ?? product.price) * quantity,
@@ -699,7 +712,9 @@ export class OrdersService {
   private createTrackingToken(orderId: string): string {
     const secret =
       process.env.PUBLIC_ORDER_TRACKING_SECRET?.trim() ||
-      (process.env.NODE_ENV === "production" ? "" : "local-order-tracking-secret");
+      (process.env.NODE_ENV === "production"
+        ? ""
+        : "local-order-tracking-secret");
     if (!secret) {
       throw ApiException.serviceUnavailable(
         "Public order tracking is not configured.",
@@ -880,7 +895,9 @@ export class OrdersService {
         });
 
         if (item.variantId) {
-          const variant = await variantRepository.findOneBy({ id: item.variantId });
+          const variant = await variantRepository.findOneBy({
+            id: item.variantId,
+          });
           if (
             !variant ||
             variant.productId !== item.productId ||
@@ -902,6 +919,7 @@ export class OrdersService {
           movementRepository.create({
             id: createId("movement"),
             productId: item.productId,
+            variantId: item.variantId ?? null,
             delta: -item.quantity,
             type: InventoryMovementType.Ship,
             reason: `Shipped ${item.quantity} item(s) for order ${order.orderNumber}`,
@@ -931,6 +949,18 @@ export class OrdersService {
         deliveredAt: now,
         updatedAt: now,
       });
+    }
+
+    if (nextStatus === OrderStatus.Returned) {
+      await this.restockReturnedItems(manager, order, now);
+
+      if (order.delivery) {
+        await deliveryRepository.save({
+          ...order.delivery,
+          status: DeliveryStatus.Returned,
+          updatedAt: now,
+        });
+      }
     }
 
     await orderRepository.save({
@@ -992,6 +1022,22 @@ export class OrdersService {
       throw ApiException.notFound("Payment record was not found.");
     }
 
+    this.assertPaymentTransition(payment.status, paymentStatus);
+
+    const isShippedOrDeliveredOrder =
+      order.status === OrderStatus.Shipped ||
+      order.status === OrderStatus.Delivered ||
+      order.status === OrderStatus.Returned;
+    if (
+      isShippedOrDeliveredOrder &&
+      (paymentStatus === PaymentStatus.Failed ||
+        paymentStatus === PaymentStatus.Cancelled)
+    ) {
+      throw ApiException.conflict(
+        "A shipped or delivered order cannot move to a failed or cancelled payment state.",
+      );
+    }
+
     const now = new Date();
 
     await paymentRepository.save({
@@ -1019,7 +1065,8 @@ export class OrdersService {
     const isTerminalOrderStatus =
       order.status === OrderStatus.Cancelled ||
       order.status === OrderStatus.Shipped ||
-      order.status === OrderStatus.Delivered;
+      order.status === OrderStatus.Delivered ||
+      order.status === OrderStatus.Returned;
 
     if (
       shouldCancelOrder &&
@@ -1097,9 +1144,13 @@ export class OrdersService {
       });
 
       if (item.variantId) {
-        const variant = await variantRepository.findOneBy({ id: item.variantId });
+        const variant = await variantRepository.findOneBy({
+          id: item.variantId,
+        });
         if (!variant || variant.reservedQty < item.quantity) {
-          throw ApiException.conflict("Reserved variant stock is inconsistent for release.");
+          throw ApiException.conflict(
+            "Reserved variant stock is inconsistent for release.",
+          );
         }
         await variantRepository.save({
           ...variant,
@@ -1111,6 +1162,7 @@ export class OrdersService {
         movementRepository.create({
           id: createId("movement"),
           productId: item.productId,
+          variantId: item.variantId ?? null,
           delta: item.quantity,
           type: InventoryMovementType.Release,
           reason,
@@ -1118,6 +1170,71 @@ export class OrdersService {
           referenceId: order.id,
           createdAt,
         }),
+      );
+    }
+  }
+
+  private async restockReturnedItems(
+    manager: EntityManager,
+    order: OrderRecord,
+    createdAt: Date,
+  ): Promise<void> {
+    const productRepository = manager.getRepository(ProductEntity);
+    const variantRepository = manager.getRepository(ProductVariantEntity);
+    const movementRepository = manager.getRepository(InventoryMovementEntity);
+
+    for (const item of order.items) {
+      const product = await productRepository.findOneBy({ id: item.productId });
+      if (!product) {
+        throw ApiException.conflict("Returned product no longer exists.");
+      }
+
+      await productRepository.save({
+        ...product,
+        stockQty: product.stockQty + item.quantity,
+      });
+
+      if (item.variantId) {
+        const variant = await variantRepository.findOneBy({
+          id: item.variantId,
+        });
+        if (!variant || variant.productId !== item.productId) {
+          throw ApiException.conflict("Returned variant no longer exists.");
+        }
+
+        await variantRepository.save({
+          ...variant,
+          stockQty: variant.stockQty + item.quantity,
+        });
+      }
+
+      await movementRepository.save(
+        movementRepository.create({
+          id: createId("movement"),
+          productId: item.productId,
+          variantId: item.variantId ?? null,
+          delta: item.quantity,
+          type: InventoryMovementType.Return,
+          reason: `Returned ${item.quantity} item(s) for order ${order.orderNumber}`,
+          referenceType: "order",
+          referenceId: order.id,
+          createdAt,
+        }),
+      );
+    }
+  }
+
+  private assertPaymentTransition(
+    currentStatus: PaymentStatus,
+    nextStatus: PaymentStatus,
+  ): void {
+    if (currentStatus === nextStatus) {
+      return;
+    }
+
+    if (!PAYMENT_STATUS_TRANSITIONS[currentStatus]?.includes(nextStatus)) {
+      throw ApiException.invalidTransition(
+        "Payment status transition is not allowed.",
       );
     }
   }
@@ -1166,7 +1283,9 @@ export class OrdersService {
     manager: EntityManager,
     items: CreateClientOrderDto["items"],
   ): Promise<Map<string, ProductVariantEntity>> {
-    const variantIds = [...new Set(items.map((item) => item.variantId).filter(Boolean))] as string[];
+    const variantIds = [
+      ...new Set(items.map((item) => item.variantId).filter(Boolean)),
+    ] as string[];
     if (variantIds.length === 0) {
       return new Map();
     }
@@ -1177,7 +1296,9 @@ export class OrdersService {
       .where("variant.id IN (:...ids)", { ids: variantIds })
       .setLock("pessimistic_write")
       .getMany();
-    const variantMap = new Map(variants.map((variant) => [variant.id, variant]));
+    const variantMap = new Map(
+      variants.map((variant) => [variant.id, variant]),
+    );
 
     for (const item of items) {
       if (!item.variantId) {
@@ -1185,10 +1306,15 @@ export class OrdersService {
       }
       const variant = variantMap.get(item.variantId);
       if (!variant || variant.productId !== item.productId) {
-        throw ApiException.validation("Variant must belong to the selected product.", "items");
+        throw ApiException.validation(
+          "Variant must belong to the selected product.",
+          "items",
+        );
       }
       if (variant.status !== "active") {
-        throw ApiException.conflict("Only active product variants can be ordered.");
+        throw ApiException.conflict(
+          "Only active product variants can be ordered.",
+        );
       }
     }
 
