@@ -74,9 +74,7 @@ type PublicProductWire = {
   slug?: string;
   sku: string;
   price: number;
-  stockQty: number;
-  reservedQty: number;
-  availableQty: number;
+  inStock: boolean;
   shortDescription: string;
   description: string;
   specs: Record<string, string>;
@@ -91,7 +89,18 @@ type PublicProductWire = {
     image: string;
   };
   brand: string;
-  variants: ProductVariantWire[];
+  variants: PublicProductVariantWire[];
+};
+
+type PublicProductVariantWire = {
+  id: string;
+  colorKey: string;
+  colorName: string;
+  sku: string;
+  price: number;
+  inStock: boolean;
+  images: string[];
+  primaryImage: string | null;
 };
 
 type ProductWithRelations = ProductEntity & {
@@ -680,22 +689,17 @@ export class ProductsService {
     const hasVariants = (product.variants ?? []).length > 0;
     const variants = (product.variants ?? [])
       .filter((variant) => variant.status === ProductStatus.Active)
-      .map((variant) => this.variantToWire(variant));
-    const stockQty = hasVariants
-      ? variants.reduce((sum, variant) => sum + variant.stockQty, 0)
-      : product.stockQty;
-    const reservedQty = hasVariants
-      ? variants.reduce((sum, variant) => sum + variant.reservedQty, 0)
-      : product.reservedQty;
+      .map((variant) => this.variantToPublicWire(variant));
+    const inStock = hasVariants
+      ? variants.some((variant) => variant.inStock)
+      : product.stockQty - product.reservedQty > 0;
     return {
       id: product.id,
       name: product.name,
       slug: product.slug ?? undefined,
       sku: product.sku,
       price: product.price,
-      stockQty,
-      reservedQty,
-      availableQty: stockQty - reservedQty,
+      inStock,
       shortDescription: product.shortDescription,
       description: product.description,
       specs: product.specs,
@@ -713,6 +717,23 @@ export class ProductsService {
       },
       brand: product.brand,
       variants,
+    };
+  }
+
+  private variantToPublicWire(
+    variant: ProductVariantEntity,
+  ): PublicProductVariantWire {
+    return {
+      id: variant.id,
+      colorKey: variant.colorKey,
+      colorName: variant.colorName,
+      sku: variant.sku,
+      price: variant.price,
+      inStock: variant.stockQty - variant.reservedQty > 0,
+      images: this.normalizeImageList(variant.images),
+      primaryImage: variant.primaryImage
+        ? this.normalizeImagePath(variant.primaryImage)
+        : null,
     };
   }
 

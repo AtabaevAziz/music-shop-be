@@ -26,6 +26,15 @@ type CategoryWithCount = CategoryEntity & {
   productCount: number;
 };
 
+type PublicCategoryWire = {
+  id: string;
+  name: string;
+  slug: string;
+  image: string;
+  description: string;
+  productCount: number;
+};
+
 @Injectable()
 export class CategoriesService {
   constructor(
@@ -49,7 +58,7 @@ export class CategoriesService {
     );
   }
 
-  async listPublicCategories(): Promise<CategoryWire[]> {
+  async listPublicCategories(): Promise<PublicCategoryWire[]> {
     const categories = await this.categoryRepository.find({
       where: {
         status: "active",
@@ -68,12 +77,21 @@ export class CategoriesService {
         ),
       }))
       .filter((category) => category.products.length > 0)
-      .map((category) =>
-        this.toWire({
+      .map((category) => {
+        const categoryWire = this.toWire({
           ...category,
           productCount: category.products.length,
-        }),
-      );
+        });
+
+        return {
+          id: categoryWire.id,
+          name: categoryWire.name,
+          slug: categoryWire.slug,
+          image: categoryWire.image,
+          description: categoryWire.description,
+          productCount: categoryWire.productCount,
+        };
+      });
   }
 
   async createCategory(payload: CreateCategoryDto): Promise<CategoryWire> {

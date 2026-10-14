@@ -31,7 +31,13 @@ export class PublicRepairsController {
       },
     );
 
-    return { repairRequest };
+    return {
+      repairRequest: {
+        id: repairRequest.id,
+        status: repairRequest.status,
+        createdAt: repairRequest.createdAt,
+      },
+    };
   }
 
   private formatPublicRepairNotes(payload: CreatePublicRepairDto): string {

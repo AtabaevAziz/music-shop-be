@@ -50,7 +50,7 @@ export class PublicOrdersController {
       items: payload.items,
     });
 
-    return { order };
+    return { order: this.toPublicOrder(order, true) };
   }
 
   @Get(":orderNumber")
@@ -59,7 +59,7 @@ export class PublicOrdersController {
     @Query("token") token?: string,
   ) {
     const order = await this.ordersService.getOrderByOrderNumber(orderNumber, token);
-    return { order };
+    return { order: this.toPublicOrder(order, false) };
   }
 
   @Post(":id/payment-webhook")
@@ -113,5 +113,54 @@ export class PublicOrdersController {
     ) {
       throw ApiException.unauthorized("Invalid payment webhook signature.");
     }
+  }
+
+  private toPublicOrder(order: Awaited<ReturnType<OrdersService["createPublicOrder"]>>, includeTrackingToken: boolean) {
+    return {
+      id: order.id,
+      orderNumber: order.orderNumber,
+      ...(includeTrackingToken && order.trackingToken
+        ? { trackingToken: order.trackingToken }
+        : {}),
+      stage: order.stage,
+      customer: order.customer,
+      address: order.address,
+      items: order.items,
+      paymentMethod: order.paymentMethod,
+      paymentStatus: order.paymentStatus,
+      payment: order.payment
+        ? {
+            method: order.payment.method,
+            status: order.payment.status,
+            amount: order.payment.amount,
+            paidAt: order.payment.paidAt,
+          }
+        : null,
+      deliveryMethod: order.deliveryMethod,
+      deliveryStatus: order.deliveryStatus,
+      delivery: order.delivery
+        ? {
+            method: order.delivery.method,
+            company: order.delivery.company,
+            address: order.delivery.address,
+            trackingNumber: order.delivery.trackingNumber,
+            shippingCost: order.delivery.shippingCost,
+            status: order.delivery.status,
+            shippedAt: order.delivery.shippedAt,
+            deliveredAt: order.delivery.deliveredAt,
+          }
+        : null,
+      status: order.status,
+      subtotal: order.subtotal,
+      deliveryCost: order.deliveryCost,
+      total: order.total,
+      timeline: order.timeline.map((entry) => ({
+        type: entry.type,
+        status: entry.status,
+        happenedAt: entry.happenedAt,
+      })),
+      createdAt: order.createdAt,
+      updatedAt: order.updatedAt,
+    };
   }
 }
