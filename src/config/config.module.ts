@@ -6,10 +6,7 @@ import { RuntimeConfigController } from "./config.controller";
 import { RuntimeConfigService } from "./config.service";
 
 @Module({
-  imports: [
-    AuthModule,
-    TypeOrmModule.forFeature([BusinessSettingsEntity]),
-  ],
+  imports: [AuthModule, TypeOrmModule.forFeature([BusinessSettingsEntity])],
   controllers: [RuntimeConfigController],
   providers: [RuntimeConfigService],
 })

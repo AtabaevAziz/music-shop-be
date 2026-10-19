@@ -51,8 +51,12 @@ export class ProductVariants20261006000000 implements MigrationInterface {
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`DROP INDEX "OrderItem_variantId_idx"`);
-    await queryRunner.query(`ALTER TABLE "OrderItem" DROP CONSTRAINT "OrderItem_variantId_fkey"`);
-    await queryRunner.query(`ALTER TABLE "OrderItem" DROP COLUMN "variantName"`);
+    await queryRunner.query(
+      `ALTER TABLE "OrderItem" DROP CONSTRAINT "OrderItem_variantId_fkey"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "OrderItem" DROP COLUMN "variantName"`,
+    );
     await queryRunner.query(`ALTER TABLE "OrderItem" DROP COLUMN "variantId"`);
     await queryRunner.query(`DROP INDEX "ProductVariant_productId_idx"`);
     await queryRunner.query(`DROP TABLE "ProductVariant"`);

@@ -74,6 +74,10 @@ export class ApiException extends HttpException {
   }
 
   static rateLimited(message: string): ApiException {
-    return new ApiException(HttpStatus.TOO_MANY_REQUESTS, "rate_limited", message);
+    return new ApiException(
+      HttpStatus.TOO_MANY_REQUESTS,
+      "rate_limited",
+      message,
+    );
   }
 }

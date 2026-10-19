@@ -14,7 +14,11 @@ export class InventoryVariant20261007000000 implements MigrationInterface {
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`DROP INDEX "InventoryMovement_variantId_idx"`);
-    await queryRunner.query(`ALTER TABLE "InventoryMovement" DROP CONSTRAINT "InventoryMovement_variantId_fkey"`);
-    await queryRunner.query(`ALTER TABLE "InventoryMovement" DROP COLUMN "variantId"`);
+    await queryRunner.query(
+      `ALTER TABLE "InventoryMovement" DROP CONSTRAINT "InventoryMovement_variantId_fkey"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "InventoryMovement" DROP COLUMN "variantId"`,
+    );
   }
 }

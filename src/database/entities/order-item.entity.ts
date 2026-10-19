@@ -51,7 +51,10 @@ export class OrderItemEntity {
   @JoinColumn({ name: "productId", referencedColumnName: "id" })
   product!: ProductEntity;
 
-  @ManyToOne(() => ProductVariantEntity, { onDelete: "RESTRICT", nullable: true })
+  @ManyToOne(() => ProductVariantEntity, {
+    onDelete: "RESTRICT",
+    nullable: true,
+  })
   @JoinColumn({ name: "variantId", referencedColumnName: "id" })
   variant!: ProductVariantEntity | null;
 }

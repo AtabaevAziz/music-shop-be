@@ -24,7 +24,9 @@ export class OrderNumberSequence20261008000000 implements MigrationInterface {
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`DROP INDEX IF EXISTS "Payment_transactionId_unique_idx"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "Payment_transactionId_unique_idx"`,
+    );
     await queryRunner.query(`DROP SEQUENCE IF EXISTS "Order_orderNumber_seq"`);
   }
 }

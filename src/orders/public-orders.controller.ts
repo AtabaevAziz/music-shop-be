@@ -1,12 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Post,
-  Query,
-  Req,
-} from "@nestjs/common";
+import { Body, Controller, Get, Param, Post, Query, Req } from "@nestjs/common";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { Request } from "express";
 import { ApiException } from "../common/exceptions/api.exception";
@@ -58,7 +50,10 @@ export class PublicOrdersController {
     @Param("orderNumber") orderNumber: string,
     @Query("token") token?: string,
   ) {
-    const order = await this.ordersService.getOrderByOrderNumber(orderNumber, token);
+    const order = await this.ordersService.getOrderByOrderNumber(
+      orderNumber,
+      token,
+    );
     return { order: this.toPublicOrder(order, false) };
   }
 
@@ -89,7 +84,12 @@ export class PublicOrdersController {
       process.env.PAYMENT_WEBHOOK_MAX_SKEW_SECONDS ?? 300,
     );
 
-    if (!timestamp || !signature || !rawBody || !Number.isFinite(maxSkewSeconds)) {
+    if (
+      !timestamp ||
+      !signature ||
+      !rawBody ||
+      !Number.isFinite(maxSkewSeconds)
+    ) {
       throw ApiException.unauthorized("Invalid payment webhook signature.");
     }
 
@@ -115,7 +115,10 @@ export class PublicOrdersController {
     }
   }
 
-  private toPublicOrder(order: Awaited<ReturnType<OrdersService["createPublicOrder"]>>, includeTrackingToken: boolean) {
+  private toPublicOrder(
+    order: Awaited<ReturnType<OrdersService["createPublicOrder"]>>,
+    includeTrackingToken: boolean,
+  ) {
     return {
       id: order.id,
       orderNumber: order.orderNumber,
