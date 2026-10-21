@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Post, Req, UseGuards } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  Post,
+  Req,
+  UseGuards,
+} from "@nestjs/common";
 import { ClientOnlyGuard } from "../auth/guards/client-only.guard";
 import { SessionAuthGuard } from "../auth/guards/session-auth.guard";
 import { RequestWithSession } from "../auth/interfaces/request-with-session.interface";
@@ -44,10 +52,12 @@ export class ClientController {
   async createOrder(
     @Req() request: RequestWithSession,
     @Body() payload: CreateClientOrderDto,
+    @Headers("idempotency-key") idempotencyKey?: string,
   ) {
     const order = await this.ordersService.createClientOrder(
       request.currentSession!.customerId!,
       payload,
+      idempotencyKey,
     );
     return { order };
   }

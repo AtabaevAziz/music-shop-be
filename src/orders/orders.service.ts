@@ -1,7 +1,13 @@
 import { Injectable } from "@nestjs/common";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Brackets, DataSource, EntityManager, Repository } from "typeorm";
+import {
+  Brackets,
+  DataSource,
+  EntityManager,
+  QueryFailedError,
+  Repository,
+} from "typeorm";
 import { ActorType } from "../common/enums/actor-type.enum";
 import { DeliveryMethod } from "../common/enums/delivery-method.enum";
 import { DeliveryStatus } from "../common/enums/delivery-status.enum";
@@ -103,6 +109,7 @@ type CreateCheckoutPayload = {
   deliveryMethod: DeliveryMethod;
   deliveryCompany?: string;
   notes?: string;
+  idempotencyKey?: string;
   items: CreateClientOrderDto["items"];
 };
 
@@ -306,6 +313,7 @@ export class OrdersService {
   async createClientOrder(
     customerId: string,
     payload: CreateClientOrderDto,
+    idempotencyKey?: string,
   ): Promise<OrderWire> {
     const customer = await this.customerRepository.findOneBy({
       id: customerId,
@@ -336,12 +344,19 @@ export class OrdersService {
       deliveryMethod: payload.deliveryMethod,
       deliveryCompany: payload.deliveryCompany,
       notes: payload.comment,
+      idempotencyKey,
       items: payload.items,
     });
   }
 
-  async createPublicOrder(payload: CreateCheckoutPayload): Promise<OrderWire> {
-    const order = await this.createCheckoutOrder(payload);
+  async createPublicOrder(
+    payload: CreateCheckoutPayload,
+    idempotencyKey?: string,
+  ): Promise<OrderWire> {
+    const order = await this.createCheckoutOrder({
+      ...payload,
+      idempotencyKey,
+    });
     return {
       ...order,
       trackingToken: this.createTrackingToken(order.id),
@@ -480,7 +495,36 @@ export class OrdersService {
   private async createCheckoutOrder(
     payload: CreateCheckoutPayload,
   ): Promise<OrderWire> {
-    return this.dataSource.transaction(async (manager) => {
+    const idempotencyKey = payload.idempotencyKey?.trim() || null;
+
+    try {
+      return await this.dataSource.transaction(async (manager) => {
+        if (idempotencyKey) {
+          const existingOrder = await manager
+            .getRepository(OrderEntity)
+            .findOne({ where: { idempotencyKey } });
+
+          if (existingOrder) {
+            if (existingOrder.customerId !== payload.customerId) {
+              throw ApiException.conflict(
+                "The idempotency key is already linked to another customer.",
+              );
+            }
+
+            const hydratedOrder = await this.loadOrderById(
+              existingOrder.id,
+              manager,
+            );
+            if (!hydratedOrder) {
+              throw ApiException.notFound(
+                "The idempotent order could not be loaded.",
+              );
+            }
+
+            return this.toWire(hydratedOrder);
+          }
+        }
+
       this.validateDeliverySelection(payload);
       const products = await this.loadProductsForCheckout(
         manager,
@@ -547,6 +591,7 @@ export class OrdersService {
         orderRepository.create({
           id: orderId,
           orderNumber,
+          idempotencyKey,
           customerId: payload.customerId,
           customerNameSnapshot: contactSnapshot.name,
           phoneSnapshot: contactSnapshot.phone,
@@ -706,7 +751,39 @@ export class OrdersService {
       }
 
       return this.toWire(order);
-    });
+      });
+    } catch (error) {
+      if (!idempotencyKey || !this.isIdempotencyUniqueViolation(error)) {
+        throw error;
+      }
+
+      const existingOrder = await this.orderRepository.findOne({
+        where: { idempotencyKey },
+      });
+      if (!existingOrder) {
+        throw error;
+      }
+      if (existingOrder.customerId !== payload.customerId) {
+        throw ApiException.conflict(
+          "The idempotency key is already linked to another customer.",
+        );
+      }
+
+      const hydratedOrder = await this.loadOrderById(existingOrder.id);
+      if (!hydratedOrder) {
+        throw error;
+      }
+
+      return this.toWire(hydratedOrder);
+    }
+  }
+
+  private isIdempotencyUniqueViolation(error: unknown): boolean {
+    return (
+      error instanceof QueryFailedError &&
+      error.driverError?.code === "23505" &&
+      error.driverError?.constraint === "Order_idempotencyKey_key"
+    );
   }
 
   private createTrackingToken(orderId: string): string {

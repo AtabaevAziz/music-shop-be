@@ -28,12 +28,19 @@ import { PaymentEntity } from "./payment.entity";
 @Index("Order_status_idx", ["status"])
 @Index("Order_paymentStatus_idx", ["paymentStatus"])
 @Index("Order_orderNumber_idx", ["orderNumber"])
+@Index("Order_idempotencyKey_key", ["idempotencyKey"], {
+  unique: true,
+  where: '"idempotencyKey" IS NOT NULL',
+})
 export class OrderEntity {
   @PrimaryColumn({ type: "text", name: "id" })
   id!: string;
 
   @Column({ type: "text", name: "orderNumber" })
   orderNumber!: string;
+
+  @Column({ type: "text", name: "idempotencyKey", nullable: true })
+  idempotencyKey!: string | null;
 
   @Column({ type: "text", name: "customerId" })
   customerId!: string;

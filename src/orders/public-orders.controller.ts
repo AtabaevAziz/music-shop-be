@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, Post, Query, Req } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  Param,
+  Post,
+  Query,
+  Req,
+} from "@nestjs/common";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { Request } from "express";
 import { ApiException } from "../common/exceptions/api.exception";
@@ -15,7 +24,10 @@ export class PublicOrdersController {
   ) {}
 
   @Post()
-  async createOrder(@Body() payload: CreatePublicOrderDto) {
+  async createOrder(
+    @Body() payload: CreatePublicOrderDto,
+    @Headers("idempotency-key") idempotencyKey?: string,
+  ) {
     const customer = await this.customersService.findOrCreatePublicCustomer({
       name: `${payload.firstName} ${payload.lastName}`.trim(),
       phone: payload.phone,
@@ -40,7 +52,7 @@ export class PublicOrdersController {
       deliveryCompany: payload.deliveryCompany,
       notes: payload.comment,
       items: payload.items,
-    });
+    }, idempotencyKey);
 
     return { order: this.toPublicOrder(order, true) };
   }

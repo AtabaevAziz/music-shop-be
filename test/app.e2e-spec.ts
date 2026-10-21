@@ -1315,6 +1315,34 @@ describe("Music Shop initial phase (e2e)", () => {
     expect(movement?.type).toBe("reserve");
   });
 
+  it("returns the existing client order for a repeated idempotency key", async () => {
+    const agent = request.agent(app.getHttpServer());
+    await loginAsClient(agent);
+
+    const idempotencyKey = "client-checkout-repeat-001";
+    const firstResponse = await agent
+      .post("/api/v1/client/orders")
+      .set("Idempotency-Key", idempotencyKey)
+      .send(buildClientOrderPayload())
+      .expect(201);
+
+    const secondResponse = await agent
+      .post("/api/v1/client/orders")
+      .set("Idempotency-Key", idempotencyKey)
+      .send(buildClientOrderPayload())
+      .expect(201);
+
+    expect(secondResponse.body.order.id).toBe(firstResponse.body.order.id);
+    expect(secondResponse.body.order.orderNumber).toBe(
+      firstResponse.body.order.orderNumber,
+    );
+
+    const product = await dataSource.getRepository(ProductEntity).findOneByOrFail({
+      id: "product-shure-sm7b",
+    });
+    expect(product.reservedQty).toBe(1);
+  });
+
   it("rolls back client order creation when requested stock exceeds available quantity", async () => {
     const agent = request.agent(app.getHttpServer());
     await loginAsClient(agent);
