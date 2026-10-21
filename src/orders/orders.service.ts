@@ -536,25 +536,47 @@ export class OrdersService {
       );
       const stockDemand = this.getStockDemand(payload.items);
 
-      for (const [productId, requestedQty] of stockDemand.entries()) {
+      for (const productId of stockDemand.keys()) {
         const product = products.get(productId);
-        const itemVariants = payload.items
-          .filter((item) => item.productId === productId)
-          .map((item) => (item.variantId ? variants.get(item.variantId) : null))
-          .filter((variant): variant is ProductVariantEntity =>
-            Boolean(variant),
-          );
-        const availableQty = itemVariants.length
-          ? itemVariants.reduce(
-              (sum, variant) => sum + variant.stockQty - variant.reservedQty,
-              0,
-            )
-          : (product?.stockQty ?? 0) - (product?.reservedQty ?? 0);
-
-        if (!product || availableQty < requestedQty) {
+        if (!product) {
           throw ApiException.conflict(
-            `Only ${Math.max(availableQty, 0)} item(s) available for ${product?.name ?? productId}.`,
+            `Only 0 item(s) available for ${productId}.`,
           );
+        }
+
+        const baseProductQty = payload.items
+          .filter((item) => item.productId === productId && !item.variantId)
+          .reduce((sum, item) => sum + this.getItemQuantity(item), 0);
+        const productAvailableQty = product.stockQty - product.reservedQty;
+
+        if (baseProductQty > productAvailableQty) {
+          throw ApiException.conflict(
+            `Only ${Math.max(productAvailableQty, 0)} item(s) available for ${product.name}.`,
+          );
+        }
+
+        const variantDemand = new Map<string, number>();
+        for (const item of payload.items) {
+          if (item.productId !== productId || !item.variantId) {
+            continue;
+          }
+          variantDemand.set(
+            item.variantId,
+            (variantDemand.get(item.variantId) ?? 0) +
+              this.getItemQuantity(item),
+          );
+        }
+
+        for (const [variantId, variantRequestedQty] of variantDemand) {
+          const variant = variants.get(variantId);
+          const availableQty = variant
+            ? variant.stockQty - variant.reservedQty
+            : 0;
+          if (availableQty < variantRequestedQty) {
+            throw ApiException.conflict(
+              `Only ${Math.max(availableQty, 0)} item(s) available for ${variant?.colorName ?? variantId}.`,
+            );
+          }
         }
       }
 
@@ -951,9 +973,10 @@ export class OrdersService {
       }
 
       for (const item of order.items) {
-        const product = await productRepository.findOneBy({
-          id: item.productId,
-        });
+        const product = await this.loadProductForUpdate(
+          manager,
+          item.productId,
+        );
 
         if (
           !product ||
@@ -972,9 +995,10 @@ export class OrdersService {
         });
 
         if (item.variantId) {
-          const variant = await variantRepository.findOneBy({
-            id: item.variantId,
-          });
+          const variant = await this.loadVariantForUpdate(
+            manager,
+            item.variantId,
+          );
           if (
             !variant ||
             variant.productId !== item.productId ||
@@ -1207,7 +1231,7 @@ export class OrdersService {
     const movementRepository = manager.getRepository(InventoryMovementEntity);
 
     for (const item of order.items) {
-      const product = await productRepository.findOneBy({ id: item.productId });
+      const product = await this.loadProductForUpdate(manager, item.productId);
 
       if (!product || product.reservedQty < item.quantity) {
         throw ApiException.conflict(
@@ -1221,9 +1245,7 @@ export class OrdersService {
       });
 
       if (item.variantId) {
-        const variant = await variantRepository.findOneBy({
-          id: item.variantId,
-        });
+        const variant = await this.loadVariantForUpdate(manager, item.variantId);
         if (!variant || variant.reservedQty < item.quantity) {
           throw ApiException.conflict(
             "Reserved variant stock is inconsistent for release.",
@@ -1261,7 +1283,7 @@ export class OrdersService {
     const movementRepository = manager.getRepository(InventoryMovementEntity);
 
     for (const item of order.items) {
-      const product = await productRepository.findOneBy({ id: item.productId });
+      const product = await this.loadProductForUpdate(manager, item.productId);
       if (!product) {
         throw ApiException.conflict("Returned product no longer exists.");
       }
@@ -1272,9 +1294,7 @@ export class OrdersService {
       });
 
       if (item.variantId) {
-        const variant = await variantRepository.findOneBy({
-          id: item.variantId,
-        });
+        const variant = await this.loadVariantForUpdate(manager, item.variantId);
         if (!variant || variant.productId !== item.productId) {
           throw ApiException.conflict("Returned variant no longer exists.");
         }
@@ -1877,10 +1897,15 @@ export class OrdersService {
     id: string,
     manager?: EntityManager,
   ): Promise<OrderRecord | null> {
-    const order = await this.buildOrderRecordQuery(manager)
+    const query = this.buildOrderRecordQuery(manager)
       .where("orderRecord.id = :id", { id })
-      .orderBy("statusHistory.changedAt", "ASC")
-      .getOne();
+      .orderBy("statusHistory.changedAt", "ASC");
+
+    if (manager) {
+      query.setLock("pessimistic_write", undefined, ["orderRecord"]);
+    }
+
+    const order = await query.getOne();
 
     return order ? this.normalizeLoadedOrder(order as OrderRecord) : null;
   }
@@ -1906,6 +1931,30 @@ export class OrdersService {
     );
     order.items = [...(order.items ?? [])];
     return order;
+  }
+
+  private async loadProductForUpdate(
+    manager: EntityManager,
+    id: string,
+  ): Promise<ProductEntity | null> {
+    return manager
+      .getRepository(ProductEntity)
+      .createQueryBuilder("product")
+      .where("product.id = :id", { id })
+      .setLock("pessimistic_write")
+      .getOne();
+  }
+
+  private async loadVariantForUpdate(
+    manager: EntityManager,
+    id: string,
+  ): Promise<ProductVariantEntity | null> {
+    return manager
+      .getRepository(ProductVariantEntity)
+      .createQueryBuilder("variant")
+      .where("variant.id = :id", { id })
+      .setLock("pessimistic_write")
+      .getOne();
   }
 
   private getOrderRepository(manager?: EntityManager) {

@@ -13,6 +13,12 @@ export class MockDataBootstrapService implements OnApplicationBootstrap {
       return;
     }
 
+    if ((process.env.NODE_ENV ?? "").toLowerCase() === "production") {
+      throw new Error(
+        "AUTO_SEED_MOCK_DATA must be disabled in production environments.",
+      );
+    }
+
     try {
       await upsertMockSeedData(this.dataSource);
       this.logger.log("Mock data bootstrap finished.");

@@ -44,7 +44,11 @@ describe("Music Shop initial phase (e2e)", () => {
 
   function buildClientOrderPayload(
     overrides: Partial<{
-      items: Array<{ productId: string; quantity: number }>;
+      items: Array<{
+        productId: string;
+        variantId?: string;
+        quantity: number;
+      }>;
       firstName: string;
       lastName: string;
       phone: string;
@@ -1341,6 +1345,26 @@ describe("Music Shop initial phase (e2e)", () => {
       id: "product-shure-sm7b",
     });
     expect(product.reservedQty).toBe(1);
+  });
+
+  it("rejects an unavailable variant even when another variant has stock", async () => {
+    const agent = request.agent(app.getHttpServer());
+    await loginAsClient(agent);
+
+    await agent
+      .post("/api/v1/client/orders")
+      .send(
+        buildClientOrderPayload({
+          items: [
+            {
+              productId: "product-yamaha-f310",
+              variantId: "variant-product-yamaha-f310-black",
+              quantity: 99,
+            },
+          ],
+        }),
+      )
+      .expect(409);
   });
 
   it("rolls back client order creation when requested stock exceeds available quantity", async () => {

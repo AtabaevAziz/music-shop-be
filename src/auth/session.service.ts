@@ -45,6 +45,10 @@ export class SessionService {
   }
 
   get secureCookie(): boolean {
+    if ((this.configService.get<string>("NODE_ENV") ?? "").toLowerCase() === "production") {
+      return true;
+    }
+
     return (
       (this.configService.get<string>("SESSION_SECURE_COOKIE") ?? "false") ===
       "true"
