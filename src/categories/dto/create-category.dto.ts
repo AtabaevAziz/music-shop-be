@@ -20,9 +20,10 @@ export class CreateCategoryDto {
   @IsIn(["active", "inactive"])
   status!: string;
 
+  @IsOptional()
   @IsString()
   @MinLength(1)
-  image!: string;
+  image?: string;
 
   @IsString()
   @MinLength(4)

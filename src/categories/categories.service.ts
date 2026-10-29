@@ -100,7 +100,9 @@ export class CategoriesService {
     await this.assertValidParent(payload.parentId ?? null);
 
     const slug = await this.generateUniqueSlug(payload.name);
-    const image = this.normalizeImagePath(payload.image);
+    const image = this.normalizeImagePath(
+      payload.image ?? "/assets/category-default.png",
+    );
     this.assertImageValue(image);
     const category = await this.categoryRepository.save(
       this.categoryRepository.create({

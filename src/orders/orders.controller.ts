@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
   Param,
   Post,
   Query,
@@ -50,6 +51,7 @@ export class OrdersController {
   }
 
   @Post(":id/status")
+  @HttpCode(200)
   async updateOrderStatus(
     @Param("id") id: string,
     @Body() payload: UpdateOrderStatusDto,
@@ -62,6 +64,7 @@ export class OrdersController {
   }
 
   @Post(":id/payment-status")
+  @HttpCode(200)
   async updateOrderPaymentStatus(
     @Param("id") id: string,
     @Body() payload: UpdateOrderPaymentDto,

@@ -147,7 +147,7 @@ export const activitySeeds = [
       productId: "product-roland-spd-sx",
       delta: -1,
     },
-    timestamp: new Date("2026-07-21T11:15:00.000Z"),
+    timestamp: new Date("2026-07-22T11:15:00.000Z"),
   },
   {
     id: "activity-repair-created-rep-2006",

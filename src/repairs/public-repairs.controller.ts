@@ -38,6 +38,7 @@ export class PublicRepairsController {
         instrumentName: repairRequest.instrumentName,
         brand: repairRequest.brand,
         notes: repairRequest.notes,
+        photoUrl: repairRequest.photoUrl,
         status: repairRequest.status,
         createdAt: repairRequest.createdAt,
       },
@@ -54,6 +55,7 @@ export class PublicRepairsController {
         : null,
       `Instrument type: ${payload.instrumentType.trim()}`,
       `Model: ${payload.instrumentModel.trim()}`,
+      payload.photoUrl?.trim() ? `Photo: ${payload.photoUrl.trim()}` : null,
     ].filter(Boolean);
 
     return lines.join("\n");

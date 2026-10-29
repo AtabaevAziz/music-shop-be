@@ -73,7 +73,7 @@ export const productSeeds = [
     brand: "Roland",
     price: 7_400_000,
     costPrice: 5_900_000,
-    stockQty: 3,
+    stockQty: 1,
     reservedQty: 0,
     minStockQty: 2,
     status: ProductStatus.active,

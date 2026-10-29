@@ -36,7 +36,7 @@ export class FinanceService {
     let paidOrders = 0;
 
     for (const order of orders) {
-      const orderTotal = order.total;
+      const orderTotal = order.subtotal;
       const orderCost = order.items.reduce(
         (sum, item) => sum + (item.product?.costPrice ?? 0) * item.quantity,
         0,
@@ -47,7 +47,10 @@ export class FinanceService {
         grossMargin += orderTotal - orderCost;
       }
 
-      if (order.paymentStatus === "paid") {
+      if (
+        order.paymentStatus === "paid" &&
+        ["packed", "delivered"].includes(order.status)
+      ) {
         paidOrders += 1;
       }
     }

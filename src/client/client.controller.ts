@@ -36,8 +36,9 @@ export class ClientController {
   }
 
   @Get("products")
-  listProducts() {
-    return this.productsService.listClientProducts();
+  async listProducts() {
+    const items = await this.productsService.listClientProducts();
+    return { items };
   }
 
   @Get("orders")

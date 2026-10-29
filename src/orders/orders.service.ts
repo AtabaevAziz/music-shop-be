@@ -888,6 +888,10 @@ export class OrdersService {
           suppressOrderStatusSync: true,
         },
       );
+      order.paymentStatus =
+        order.paymentStatus === PaymentStatus.Paid
+          ? PaymentStatus.Refunded
+          : PaymentStatus.Cancelled;
     }
 
     if (
@@ -1900,10 +1904,6 @@ export class OrdersService {
     const query = this.buildOrderRecordQuery(manager)
       .where("orderRecord.id = :id", { id })
       .orderBy("statusHistory.changedAt", "ASC");
-
-    if (manager) {
-      query.setLock("pessimistic_write", undefined, ["orderRecord"]);
-    }
 
     const order = await query.getOne();
 

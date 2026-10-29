@@ -1,6 +1,5 @@
 import {
   Column,
-  CreateDateColumn,
   Entity,
   Index,
   PrimaryColumn,
@@ -21,6 +20,11 @@ export class ActivityEntity {
   @Column({ type: "jsonb", name: "messageParams" })
   messageParams!: Record<string, string | number | boolean | null>;
 
-  @CreateDateColumn({ type: "timestamp", precision: 3, name: "timestamp" })
+  @Column({
+    type: "timestamp",
+    precision: 3,
+    name: "timestamp",
+    default: () => "CURRENT_TIMESTAMP",
+  })
   timestamp!: Date;
 }
