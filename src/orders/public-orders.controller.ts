@@ -134,6 +134,7 @@ export class PublicOrdersController {
     return {
       id: order.id,
       orderNumber: order.orderNumber,
+      customerId: order.customerId,
       ...(includeTrackingToken && order.trackingToken
         ? { trackingToken: order.trackingToken }
         : {}),
@@ -166,6 +167,7 @@ export class PublicOrdersController {
           }
         : null,
       status: order.status,
+      notes: order.notes,
       subtotal: order.subtotal,
       deliveryCost: order.deliveryCost,
       total: order.total,

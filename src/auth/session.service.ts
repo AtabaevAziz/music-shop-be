@@ -96,7 +96,6 @@ export class SessionService {
       session: {
         role: employee.role as Role,
         name: employee.name,
-        employeeId: employee.id,
       },
     };
   }

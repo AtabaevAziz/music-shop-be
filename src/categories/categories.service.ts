@@ -32,6 +32,7 @@ type PublicCategoryWire = {
   slug: string;
   image: string;
   description: string;
+  status: string;
   productCount: number;
 };
 
@@ -89,6 +90,7 @@ export class CategoriesService {
           slug: categoryWire.slug,
           image: categoryWire.image,
           description: categoryWire.description,
+          status: categoryWire.status,
           productCount: categoryWire.productCount,
         };
       });

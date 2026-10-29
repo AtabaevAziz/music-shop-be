@@ -1,0 +1,6 @@
+ignoredBuiltDependencies:
+  - '@nestjs/core'
+  - bcrypt
+  - esbuild
+onlyBuiltDependencies:
+  - bcrypt

@@ -34,6 +34,10 @@ export class PublicRepairsController {
     return {
       repairRequest: {
         id: repairRequest.id,
+        customerId: repairRequest.customerId,
+        instrumentName: repairRequest.instrumentName,
+        brand: repairRequest.brand,
+        notes: repairRequest.notes,
         status: repairRequest.status,
         createdAt: repairRequest.createdAt,
       },

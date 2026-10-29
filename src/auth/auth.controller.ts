@@ -51,7 +51,15 @@ export class AuthController {
     const session = await this.sessionService.resolveRequestSession(
       request.cookies as Record<string, string | undefined>,
     );
-    return { session };
+    return {
+      session: session
+        ? {
+            role: session.role,
+            name: session.name,
+            ...(session.customerId ? { customerId: session.customerId } : {}),
+          }
+        : null,
+    };
   }
 
   @Post("logout")
