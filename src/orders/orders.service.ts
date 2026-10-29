@@ -1667,9 +1667,30 @@ export class OrdersService {
   }
 
   private async allocateOrderNumber(manager: EntityManager): Promise<string> {
-    const result = await manager.query<{ nextval: string }[]>(
-      `SELECT nextval('"Order_orderNumber_seq"') AS nextval`,
+    await manager.query(
+      `SELECT pg_advisory_xact_lock(hashtext('music-shop.order-number'))`,
     );
+
+    const result = await manager.query<{ nextval: string }[]>(`
+      SELECT nextval('"Order_orderNumber_seq"') AS nextval
+      FROM (
+        SELECT setval(
+          '"Order_orderNumber_seq"',
+          GREATEST(
+            1000,
+            COALESCE(
+              (
+                SELECT MAX((regexp_replace("orderNumber", '\\D', '', 'g'))::integer)
+                FROM "Order"
+              ),
+              1000
+            ),
+            (SELECT last_value FROM "Order_orderNumber_seq")
+          ),
+          true
+        )
+      ) AS sequence_sync
+    `);
     const nextValue = Number(result[0]?.nextval);
     if (!Number.isInteger(nextValue)) {
       throw ApiException.conflict("Could not allocate a new order number.");

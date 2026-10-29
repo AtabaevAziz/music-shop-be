@@ -372,6 +372,7 @@ async function upsertSeedData(client: SeedClient): Promise<void> {
       ["id"],
     );
   }
+  await syncOrderNumberSequence(client);
 
   for (const item of orderItemSeeds) {
     await getRepository(client, OrderItemEntity).upsert(
@@ -442,6 +443,25 @@ async function upsertSeedData(client: SeedClient): Promise<void> {
       ["id"],
     );
   }
+}
+
+async function syncOrderNumberSequence(client: SeedClient): Promise<void> {
+  await client.query(`
+    SELECT setval(
+      '"Order_orderNumber_seq"',
+      GREATEST(
+        1000,
+        COALESCE(
+          (
+            SELECT MAX((regexp_replace("orderNumber", '\\D', '', 'g'))::integer)
+            FROM "Order"
+          ),
+          1000
+        )
+      ),
+      true
+    )
+  `);
 }
 
 async function buildEmployeePayload(employee: (typeof employeeSeeds)[number]) {
