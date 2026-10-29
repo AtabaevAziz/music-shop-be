@@ -244,6 +244,7 @@ async function clearDatabase(client: SeedClient): Promise<void> {
   await deleteAll(client, InventoryMovementEntity);
   await deleteAll(client, RepairRequestEntity);
   await deleteAll(client, OrderEntity);
+  await deleteAll(client, ProductVariantEntity);
   await deleteAll(client, ProductEntity);
   await deleteAll(client, CategoryEntity);
   await deleteAll(client, CustomerEntity);
